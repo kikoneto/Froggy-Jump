@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>Froggy Jump</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #0d0d1a;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+        gap: 20px;
+        font-family: monospace;
+      }
+
+      canvas {
+        display: block;
+        flex-shrink: 0;
+      }
+
+      /* ── Stats panel ── */
+      #stats {
+        width: 220px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .stat-group {
+        background: #11112a;
+        border: 1px solid #2a2a4a;
+        border-radius: 8px;
+        padding: 10px 14px;
+      }
+
+      .stat-group h3 {
+        font-size: 9px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: #444466;
+        margin-bottom: 8px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #2a2a4a;
+      }
+
+      .stat-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 3px 0;
+      }
+
+      .stat-label {
+        font-size: 11px;
+        color: #666688;
+      }
+
+      .stat-value {
+        font-size: 11px;
+        color: #00ff88;
+        text-align: right;
+      }
+
+      .stat-value.warn {
+        color: #ffdd44;
+      }
+      .stat-value.dead {
+        color: #ff5555;
+      }
+      .stat-value.idle {
+        color: #888888;
+      }
+
+      /* Hide stats panel on small screens where there's no room */
+      @media (max-width: 700px) {
+        #stats {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="stats">
+      <div class="stat-group">
+        <h3>Game</h3>
+        <div class="stat-row">
+          <span class="stat-label">state</span>
+          <span class="stat-value" id="s-state">idle</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">fps</span>
+          <span class="stat-value" id="s-fps">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">score</span>
+          <span class="stat-value" id="s-score">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">best</span>
+          <span class="stat-value" id="s-best">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">difficulty</span>
+          <span class="stat-value" id="s-difficulty">0</span>
+        </div>
+      </div>
+
+      <div class="stat-group">
+        <h3>Frog</h3>
+        <div class="stat-row">
+          <span class="stat-label">x</span>
+          <span class="stat-value" id="s-frog-x">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">y</span>
+          <span class="stat-value" id="s-frog-y">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">vx</span>
+          <span class="stat-value" id="s-frog-vx">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">vy</span>
+          <span class="stat-value" id="s-frog-vy">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">grounded</span>
+          <span class="stat-value" id="s-frog-grounded">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">charge</span>
+          <span class="stat-value" id="s-frog-charge">—</span>
+        </div>
+      </div>
+
+      <div class="stat-group">
+        <h3>Current Platform</h3>
+        <div class="stat-row">
+          <span class="stat-label">x</span>
+          <span class="stat-value" id="s-plat-x">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">y</span>
+          <span class="stat-value" id="s-plat-y">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">width</span>
+          <span class="stat-value" id="s-plat-w">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">vx</span>
+          <span class="stat-value" id="s-plat-vx">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">vy</span>
+          <span class="stat-value" id="s-plat-vy">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">spawnY</span>
+          <span class="stat-value" id="s-plat-spawny">—</span>
+        </div>
+      </div>
+
+      <div class="stat-group">
+        <h3>Camera</h3>
+        <div class="stat-row">
+          <span class="stat-label">cameraY</span>
+          <span class="stat-value" id="s-camera-y">—</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">platforms</span>
+          <span class="stat-value" id="s-plat-count">—</span>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { Game } from "./js/game.js";
+
+      const game = new Game();
+
+      // ── Stat elements ──
+      const el = (id) => document.getElementById(id);
+
+      function r(n) {
+        return Math.round(n ?? 0);
+      }
+
+      function updateStats() {
+        const s = game.getDebugStats();
+        if (!s) return;
+
+        // Game
+        const stateEl = el("s-state");
+        stateEl.textContent = s.state;
+        stateEl.className =
+          "stat-value " +
+          (s.state === "playing" ? "" : s.state === "dead" ? "dead" : "idle");
+
+        el("s-fps").textContent = s.fps + " / " + s.targetFps;
+        el("s-score").textContent = s.score;
+        el("s-best").textContent = s.bestScore;
+        el("s-difficulty").textContent = s.difficulty;
+
+        // Frog
+        el("s-frog-x").textContent = r(s.frog.x);
+        el("s-frog-y").textContent = r(s.frog.y);
+        el("s-frog-vx").textContent = r(s.frog.vx);
+        el("s-frog-vy").textContent = r(s.frog.vy);
+        el("s-frog-charge").textContent = r(s.frog.charge);
+
+        const groundedEl = el("s-frog-grounded");
+        groundedEl.textContent = s.frog.grounded ? "yes" : "no";
+        groundedEl.className = "stat-value " + (s.frog.grounded ? "" : "warn");
+
+        // Current platform
+        if (s.platform) {
+          el("s-plat-x").textContent = r(s.platform.x);
+          el("s-plat-y").textContent = r(s.platform.y);
+          el("s-plat-w").textContent = r(s.platform.width);
+          el("s-plat-vx").textContent = r(s.platform.vx);
+          el("s-plat-vy").textContent = r(s.platform.vy);
+          el("s-plat-spawny").textContent = r(s.platform.spawnY);
+        } else {
+          [
+            "s-plat-x",
+            "s-plat-y",
+            "s-plat-w",
+            "s-plat-vx",
+            "s-plat-vy",
+            "s-plat-spawny",
+          ].forEach((id) => (el(id).textContent = "—"));
+        }
+
+        // Camera
+        el("s-camera-y").textContent = r(s.cameraY);
+        el("s-plat-count").textContent = s.platformCount;
+      }
+
+      // Update stats at 30fps — no need to match the game loop
+      setInterval(updateStats, 33);
+    </script>
+  </body>
+</html>
