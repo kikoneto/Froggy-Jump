@@ -1,4 +1,4 @@
-import { Platform } from "./platform.js";
+import { Platform } from "../entities/platform.js";
 import { Size, Physics } from "../variables.js";
 
 // ─────────────────────────────────────────────────────────────
@@ -117,70 +117,6 @@ export class PlatformManager {
     }
 
     return null;
-  }
-
-  // ─────────────────────────────────────────────────────────
-  //  DRAW — renders all platforms visible on screen
-  // ─────────────────────────────────────────────────────────
-
-  draw(ctx, cameraY) {
-    for (const p of this.platforms) {
-      const screenY = p.y - cameraY;
-
-      // Skip platforms outside the visible area
-      if (screenY > Size.LOGICAL_HEIGHT + 20) continue;
-      if (screenY < -p.height - 20) continue;
-
-      this._drawPlatform(ctx, p, screenY);
-    }
-  }
-
-  _drawPlatform(ctx, p, screenY) {
-    const radius = 5;
-    const isMoving = p.vx !== 0 || p.vy !== 0;
-
-    // Moving platforms are orange-tinted, static ones are green
-    const bodyColor = isMoving ? "#a05a00" : "#3a7d44";
-    const highlightColor = isMoving
-      ? "rgba(255,200,80,0.25)"
-      : "rgba(255,255,255,0.15)";
-
-    // ── Main body ──
-    ctx.fillStyle = bodyColor;
-    this._roundRect(ctx, p.x, screenY, p.width, p.height, radius);
-    ctx.fill();
-
-    // ── Top highlight stripe ──
-    ctx.fillStyle = highlightColor;
-    this._roundRect(ctx, p.x + 3, screenY + 2, p.width - 6, 4, 2);
-    ctx.fill();
-
-    // ── Bottom shadow ──
-    ctx.fillStyle = "rgba(0,0,0,0.25)";
-    this._roundRect(
-      ctx,
-      p.x + 2,
-      screenY + p.height - 4,
-      p.width - 4,
-      4,
-      radius,
-    );
-    ctx.fill();
-  }
-
-  // Canvas helper — rounded rectangle path
-  _roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
   }
 
   // ─────────────────────────────────────────────────────────
