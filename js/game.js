@@ -1,6 +1,11 @@
-import { Frog } from "./frog/frog.js";
-import { PlatformManager } from "./platform/platformManager.js";
+import { Frog } from "./entities/frog.js";
+import { PlatformManager } from "./services/platformManager.js";
 import { State, Size, Physics, FPS } from "./variables.js";
+import { BackgroundRenderer } from "./renderer/backgroundRenderer.js";
+import { FrogRenderer } from "./renderer/frogRenderer.js";
+import { PlatformRenderer } from "./renderer/platformRenderer.js";
+import { ParticleSystem } from "./renderer/particleSystem.js";
+import { UIRenderer } from "./renderer/uiRenderer.js";
 
 export class Game {
   // ─────────────────────────────────────────────────────────
@@ -16,9 +21,19 @@ export class Game {
     this.canvas.width = this.width;
     this.canvas.height = this.height;
 
+    // Disable smoothing — keeps pixel art crisp when canvas is scaled
+    this.ctx.imageSmoothingEnabled = false;
+
     // ── Game objects ──
     this.frog = new Frog();
     this.platformManager = new PlatformManager();
+
+    // ── Renderers ──
+    this.bgRenderer = new BackgroundRenderer();
+    this.frogRenderer = new FrogRenderer();
+    this.platformRenderer = new PlatformRenderer();
+    this.particles = new ParticleSystem();
+    this.ui = new UIRenderer();
 
     // ── Camera ──
     // cameraY is the world Y that maps to the top of the screen.
@@ -46,6 +61,10 @@ export class Game {
     this._bindInput();
     this._resize();
     window.addEventListener("resize", () => this._resize());
+
+    // Pre-init the world so it renders behind the idle overlay
+    this.init();
+
     requestAnimationFrame(this.loop.bind(this));
   }
 
@@ -127,12 +146,13 @@ export class Game {
         this.updateCharge(dt);
         this.updateJump();
         this.updatePhysics(dt);
-        this.updateGroundedRide(); // snap frog to platform every grounded frame
+        this.updateGroundedRide();
         this.updateWallWrap();
         this.updatePlatformCollision();
         this.updateCamera();
         this.updateScore();
         this.platformManager.update(this.cameraY, this.difficulty, dt);
+        this.particles.update(dt);
         this.updateDeathCheck();
         break;
 
@@ -166,7 +186,10 @@ export class Game {
     this.frog.vy = -power;
     this.frog.grounded = false;
     this.frog.charge = 0;
-    this.frog.currentPlatform = null; // detach from platform
+    this.frog.currentPlatform = null;
+
+    // Dust puff downward on jump
+    this.particles.spawnJump(this.frog.x, this.frog.y + Physics.FROG_H / 2);
 
     console.log("Jump! power=" + Math.round(power) + " t=" + t.toFixed(2));
   }
@@ -197,15 +220,20 @@ export class Game {
     const platform = this.platformManager.collide(this.frog);
     if (!platform) return;
 
-    // Store which platform the frog is riding
+    const wasAirborne = !this.frog.grounded;
+
     this.frog.currentPlatform = platform;
     this.frog.grounded = true;
     this.frog.vy = 0;
     this.frog.charge = 0;
-
-    // Snap frog to platform surface and inherit both velocities
     this.frog.y = platform.top - Physics.FROG_H / 2;
     this.frog.vx = platform.vx;
+
+    if (wasAirborne) {
+      // Splash burst + frog squash animation
+      this.particles.spawnLand(this.frog.x, platform.top);
+      this.frogRenderer.triggerLanding();
+    }
   }
 
   // Every frame the frog is grounded, keep it locked to its platform
@@ -273,11 +301,12 @@ export class Game {
   // ─────────────────────────────────────────────────────────
 
   draw() {
-    const { ctx, width, height } = this;
+    const { ctx, width, height, cameraY } = this;
 
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = "#1a1a2e";
-    ctx.fillRect(0, 0, width, height);
+
+    // Background (always drawn, even on overlays)
+    this.bgRenderer.draw(ctx, cameraY);
 
     switch (this.currentState) {
       case State.IDLE:
@@ -293,84 +322,38 @@ export class Game {
   }
 
   drawIdleScreen() {
-    const { ctx, width, height } = this;
-
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 32px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("FROGGY JUMP", width / 2, height / 2 - 20);
-
-    ctx.fillStyle = "#aaaaaa";
-    ctx.font = "16px monospace";
-    ctx.fillText("hold SPACE or tap to start", width / 2, height / 2 + 20);
+    // Draw the game world first so it shows behind the overlay
+    this.drawGame();
+    this.ui.drawIdle(this.ctx);
   }
 
   drawGame() {
-    const { ctx, width, frog, cameraY } = this;
-    const { FROG_W, FROG_H, JUMP_POWER_MAX } = Physics;
+    const { ctx, frog, cameraY } = this;
 
-    // ── Platforms ──
-    this.platformManager.draw(ctx, cameraY);
-
-    // ── Frog ──
-    const screenY = frog.y - cameraY;
-
-    ctx.fillStyle = frog.grounded ? "#4cff6a" : "#2aaa44";
-    ctx.fillRect(frog.x - FROG_W / 2, screenY - FROG_H / 2, FROG_W, FROG_H);
-
-    // Eyes
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.arc(frog.x - 8, screenY - 8, 5, 0, Math.PI * 2);
-    ctx.arc(frog.x + 8, screenY - 8, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // ── Charge bar ──
-    if (frog.grounded && frog.charge > 0) {
-      const barW = 60;
-      const barH = 6;
-      const barX = frog.x - barW / 2;
-      const barY = screenY - FROG_H / 2 - 14;
-      const fillW = (frog.charge / JUMP_POWER_MAX) * barW;
-      const t = frog.charge / JUMP_POWER_MAX;
-
-      ctx.fillStyle = "rgba(0,0,0,0.4)";
-      ctx.fillRect(barX, barY, barW, barH);
-
-      ctx.fillStyle = t < 0.5 ? "#4cff6a" : "#ffdd44";
-      ctx.fillRect(barX, barY, fillW, barH);
+    // Platforms
+    for (const p of this.platformManager.platforms) {
+      const screenY = p.y - cameraY;
+      if (screenY > this.height + 20 || screenY < -20) continue;
+      this.platformRenderer.draw(ctx, p, screenY);
     }
 
-    // ── Score HUD ──
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 18px monospace";
-    ctx.textAlign = "right";
-    ctx.fillText(this.score, width - 16, 32);
+    // Particles (behind frog)
+    this.particles.draw(ctx, cameraY);
 
-    ctx.fillStyle = "#888888";
-    ctx.font = "12px monospace";
-    ctx.fillText("best: " + this.bestScore, width - 16, 50);
+    // Frog
+    this.frogRenderer.draw(ctx, frog, cameraY);
+
+    // HUD — only show score during active play, not on idle/dead overlays
+    if (this.currentState === State.PLAYING) {
+      this.ui.drawScore(ctx, this.score, this.bestScore);
+      this.ui.drawChargeBar(ctx, frog, cameraY, Physics.JUMP_POWER_MAX);
+    }
   }
 
   drawDeadScreen() {
-    const { ctx, width, height } = this;
-
-    ctx.fillStyle = "#ff5555";
-    ctx.font = "bold 28px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("GAME OVER", width / 2, height / 2 - 40);
-
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "18px monospace";
-    ctx.fillText("score: " + this.score, width / 2, height / 2);
-
-    ctx.fillStyle = "#ffdd44";
-    ctx.font = "14px monospace";
-    ctx.fillText("best:  " + this.bestScore, width / 2, height / 2 + 26);
-
-    ctx.fillStyle = "#aaaaaa";
-    ctx.font = "13px monospace";
-    ctx.fillText("tap or SPACE to retry", width / 2, height / 2 + 60);
+    // Keep the game world visible underneath
+    this.drawGame();
+    this.ui.drawDead(this.ctx, this.score, this.bestScore);
   }
 
   // ─────────────────────────────────────────────────────────
