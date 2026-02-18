@@ -10,12 +10,12 @@ export const State = Object.freeze({
 });
 
 export const Physics = Object.freeze({
-  GRAVITY: 1500, // px/s²
-  JUMP_POWER_MIN: 350, // px/s — minimum jump (tiny tap)
-  JUMP_POWER_MAX: 600, // px/s — maximum jump (full charge)
-  CHARGE_RATE: 1500, // px/s added per second of holding
-  FROG_W: 36, // px — frog collision width
-  FROG_H: 36, // px — frog collision height
+  GRAVITY: 1800, // px/s²
+  JUMP_POWER_MIN: 500, // px/s — minimum jump (tiny tap)
+  JUMP_POWER_MAX: 1100, // px/s — maximum jump (full charge)
+  CHARGE_RATE: 900, // px/s added per second of holding
+  FROG_W: 82, // px — frog collision width (matches sprite)
+  FROG_H: 40, // px — frog collision height (matches sprite aspect ratio)
   FLOOR_Y: Size.LOGICAL_HEIGHT - 40, // ← fixed: was LOGICAL_H (undefined)
 });
 

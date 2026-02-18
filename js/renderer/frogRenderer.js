@@ -1,67 +1,109 @@
 // ─────────────────────────────────────────────────────────────
-//  FrogRenderer
-//  Draws the frog as a pixel-art sprite.
-//  Animation states:
-//    idle     — grounded, no charge
-//    charging — grounded, charge > 0 (squishes vertically)
-//    rising   — airborne, vy < 0 (stretches tall)
-//    falling  — airborne, vy > 0 (spreads wide, legs out)
-//    landing  — single-frame squash on touchdown
+//  FrogRenderer - Sprite Sheet Animation
+//  Uses all 4 frames from the original GIF
+//  Frame timing: 170ms per frame (from GIF metadata)
 // ─────────────────────────────────────────────────────────────
 
-const PX = 3; // one "pixel" in canvas pixels
-
-// Colour palette
-const C = {
-  body: "#3ecf4a", // main green
-  bodyDark: "#2a9e33", // shadow / underside
-  bodyLight: "#6eff7a", // highlight
-  eye: "#ffffff",
-  pupil: "#1a1a2e",
-  shine: "#ffffff",
-  belly: "#a8e8a0",
-  leg: "#2a9e33",
-  legDark: "#1a7024",
-  mouth: "#1a5e22",
-};
+import { Physics } from "../variables.js";
 
 export class FrogRenderer {
   constructor() {
-    this._landingTimer = 0; // frames remaining of landing squash
+    this._landingTimer = 0;
+
+    // Load the sprite sheet (4 frames horizontal)
+    this.spriteSheet = new Image();
+    this.spriteSheet.src = "./assets/frog-spritesheet-2x.png"; // 832×100 (4 frames at 208×100 each)
+    this.spriteLoaded = false;
+
+    this.spriteSheet.onload = () => {
+      this.spriteLoaded = true;
+      console.log(
+        "Frog sprite sheet loaded:",
+        this.spriteSheet.width,
+        "x",
+        this.spriteSheet.height,
+      );
+    };
+
+    this.spriteSheet.onerror = () => {
+      console.error("Failed to load frog sprite sheet");
+    };
+
+    // Animation config
+    this.frameCount = 4;
+    this.frameWidth = 208; // each frame is 208px wide (2x scale)
+    this.frameHeight = 100; // each frame is 100px tall (2x scale)
+    this.frameDuration = 170; // ms per frame (from GIF)
+    this.animationStartTime = Date.now();
   }
 
-  // ── Called by game when frog lands ──
   triggerLanding() {
-    this._landingTimer = 8; // 8 frames of squash
+    this._landingTimer = 8;
   }
 
-  // ── Main draw — called every frame ──
   draw(ctx, frog, cameraY) {
+    if (!this.spriteLoaded) {
+      // Fallback while loading
+      ctx.fillStyle = "#5b7d73";
+      ctx.fillRect(frog.x - 41, frog.y - cameraY - 20, 82, 40);
+      return;
+    }
+
     const screenY = frog.y - cameraY;
     const state = this._getState(frog);
-
-    // Squish / stretch scale based on state
-    const { sx, sy } = this._getScale(frog, state);
+    const { sx, sy, offsetY } = this._getTransform(frog, state);
 
     ctx.save();
-    ctx.translate(Math.round(frog.x), Math.round(screenY));
+    ctx.translate(Math.round(frog.x), Math.round(screenY + offsetY));
     ctx.scale(sx, sy);
 
     this._drawShadow(ctx, frog, state);
-    this._drawLegs(ctx, state);
-    this._drawBody(ctx);
-    this._drawBelly(ctx);
-    this._drawEyes(ctx, state);
-    this._drawMouth(ctx, state);
+
+    // Calculate which frame to show
+    const frameIndex = this._getCurrentFrame(state);
+    const frameX = frameIndex * this.frameWidth;
+
+    // Scale sprite to match target size (82px wide)
+    const targetWidth = Physics.FROG_W;
+    const scale = targetWidth / this.frameWidth;
+    const w = this.frameWidth * scale;
+    const h = this.frameHeight * scale;
+
+    // Draw the current frame from the sprite sheet
+    ctx.drawImage(
+      this.spriteSheet,
+      frameX,
+      0,
+      this.frameWidth,
+      this.frameHeight, // source rectangle
+      -w / 2,
+      -h / 2,
+      w,
+      h, // destination
+    );
 
     ctx.restore();
 
     if (this._landingTimer > 0) this._landingTimer--;
   }
 
-  // ─────────────────────────────────────────────────────────
-  //  STATE
-  // ─────────────────────────────────────────────────────────
+  _getCurrentFrame(state) {
+    // Use different animation speeds for different states
+    let speed = 1.0;
+
+    if (state === "charging") {
+      speed = 0.5; // slower breathing when charging
+    } else if (state === "rising" || state === "falling") {
+      speed = 2.0; // faster animation when airborne
+    }
+
+    const elapsed = Date.now() - this.animationStartTime;
+    const adjustedTime = elapsed * speed;
+    const frameIndex =
+      Math.floor(adjustedTime / this.frameDuration) % this.frameCount;
+
+    return frameIndex;
+  }
 
   _getState(frog) {
     if (this._landingTimer > 0) return "landing";
@@ -70,167 +112,41 @@ export class FrogRenderer {
     return "idle";
   }
 
-  _getScale(frog, state) {
+  _getTransform(frog, state) {
     switch (state) {
-      case "landing":
-        return { sx: 1.4, sy: 0.65 }; // wide squash
-      case "charging": {
-        const t = frog.charge / 1100;
-        return { sx: 1 + t * 0.25, sy: 1 - t * 0.3 }; // squish as charge builds
-      }
+      case "idle":
+        // No extra offset — let frame animation handle breathing
+        return { sx: 1, sy: 1, offsetY: 0 };
+
+      case "charging":
+        const chargeT = frog.charge / 1100;
+        return {
+          sx: 1 + chargeT * 0.2,
+          sy: 1 - chargeT * 0.3,
+          offsetY: 0,
+        };
+
       case "rising":
-        return { sx: 0.75, sy: 1.35 }; // tall stretch
+        return { sx: 0.8, sy: 1.3, offsetY: 0 };
+
       case "falling":
-        return { sx: 1.2, sy: 0.85 }; // wide spread
+        return { sx: 1.15, sy: 0.9, offsetY: 0 };
+
+      case "landing":
+        return { sx: 1.4, sy: 0.65, offsetY: 0 };
+
       default:
-        return { sx: 1, sy: 1 };
+        return { sx: 1, sy: 1, offsetY: 0 };
     }
   }
-
-  // ─────────────────────────────────────────────────────────
-  //  SHADOW — oval under frog when grounded
-  // ─────────────────────────────────────────────────────────
 
   _drawShadow(ctx, frog, state) {
     if (!frog.grounded && state !== "landing") return;
-    ctx.globalAlpha = 0.25;
+    ctx.globalAlpha = 0.3;
     ctx.fillStyle = "#000000";
     ctx.beginPath();
-    ctx.ellipse(0, 20, 14, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 20, 16, 4, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
-  }
-
-  // ─────────────────────────────────────────────────────────
-  //  BODY — chunky pixel-art rectangle with highlights
-  // ─────────────────────────────────────────────────────────
-
-  _drawBody(ctx) {
-    const w = 30,
-      h = 24;
-    const x = -w / 2,
-      y = -h / 2;
-
-    // Main body
-    ctx.fillStyle = C.body;
-    ctx.fillRect(x, y, w, h);
-
-    // Top highlight row
-    ctx.fillStyle = C.bodyLight;
-    ctx.fillRect(x + PX, y, w - PX * 2, PX);
-    ctx.fillRect(x, y + PX, PX, PX);
-
-    // Left highlight column
-    ctx.fillStyle = C.bodyLight;
-    ctx.fillRect(x, y + PX, PX, h - PX * 3);
-
-    // Bottom shadow row
-    ctx.fillStyle = C.bodyDark;
-    ctx.fillRect(x + PX, y + h - PX, w - PX * 2, PX);
-    ctx.fillRect(x + w - PX, y + PX, PX, h - PX * 2);
-
-    // Corner pixels (darkest)
-    ctx.fillStyle = C.bodyDark;
-    ctx.fillRect(x, y, PX, PX); // top-left
-    ctx.fillRect(x + w - PX, y, PX, PX); // top-right
-    ctx.fillRect(x, y + h - PX, PX, PX); // bottom-left
-    ctx.fillRect(x + w - PX, y + h - PX, PX, PX); // bottom-right
-  }
-
-  // ─────────────────────────────────────────────────────────
-  //  BELLY — lighter patch on lower body
-  // ─────────────────────────────────────────────────────────
-
-  _drawBelly(ctx) {
-    ctx.fillStyle = C.belly;
-    ctx.fillRect(-8, 4, 16, 8);
-    // Belly outline (darker)
-    ctx.fillStyle = C.bodyDark;
-    ctx.fillRect(-8, 4, 16, PX); // top edge
-    ctx.fillRect(-8, 12 - PX, 16, PX); // bottom edge
-  }
-
-  // ─────────────────────────────────────────────────────────
-  //  EYES — round pixel eyes, positioned on top of head
-  //  In 'falling' state eyes go wide
-  // ─────────────────────────────────────────────────────────
-
-  _drawEyes(ctx, state) {
-    const eyeW = state === "falling" ? PX * 3 : PX * 2;
-    const eyeH = state === "falling" ? PX * 3 : PX * 2;
-    const eyeY = -14;
-
-    [
-      [-9, eyeY],
-      [6, eyeY],
-    ].forEach(([ex, ey]) => {
-      // White
-      ctx.fillStyle = C.eye;
-      ctx.fillRect(ex, ey, eyeW, eyeH);
-
-      // Pupil (offset right-down for direction feel)
-      ctx.fillStyle = C.pupil;
-      ctx.fillRect(ex + PX, ey + PX, PX, PX);
-
-      // Shine dot
-      ctx.fillStyle = C.shine;
-      ctx.fillRect(ex, ey, PX, PX);
-    });
-  }
-
-  // ─────────────────────────────────────────────────────────
-  //  MOUTH — smile when idle, open O when rising/falling
-  // ─────────────────────────────────────────────────────────
-
-  _drawMouth(ctx, state) {
-    ctx.fillStyle = C.mouth;
-    if (state === "rising" || state === "falling") {
-      // Open O mouth
-      ctx.fillRect(-PX, 6, PX * 2, PX * 2);
-    } else {
-      // Smile — two pixels
-      ctx.fillRect(-6, 6, PX, PX);
-      ctx.fillRect(3, 6, PX, PX);
-      ctx.fillRect(-3, 8, PX * 2, PX);
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────
-  //  LEGS — chunky pixel legs, position changes per state
-  // ─────────────────────────────────────────────────────────
-
-  _drawLegs(ctx, state) {
-    ctx.fillStyle = C.leg;
-
-    if (state === "idle" || state === "charging" || state === "landing") {
-      // Legs tucked under body
-      // Left leg
-      this._pixelRect(ctx, -18, 12, 8, PX * 2);
-      this._pixelRect(ctx, -22, 14, PX * 2, PX);
-      // Right leg
-      this._pixelRect(ctx, 10, 12, 8, PX * 2);
-      this._pixelRect(ctx, 14, 14, PX * 2, PX);
-    } else if (state === "rising") {
-      // Legs pulled up tight
-      this._pixelRect(ctx, -16, 6, PX * 2, 8);
-      this._pixelRect(ctx, 10, 6, PX * 2, 8);
-    } else {
-      // Falling — legs splayed outward
-      this._pixelRect(ctx, -22, 10, 10, PX * 2);
-      this._pixelRect(ctx, -24, 12, PX * 2, PX * 2);
-      this._pixelRect(ctx, 12, 10, 10, PX * 2);
-      this._pixelRect(ctx, 22, 12, PX * 2, PX * 2);
-    }
-
-    // Feet toes (darker)
-    ctx.fillStyle = C.legDark;
-    if (state === "idle" || state === "charging" || state === "landing") {
-      this._pixelRect(ctx, -24, 14, PX * 2, PX);
-      this._pixelRect(ctx, 16, 14, PX * 2, PX);
-    }
-  }
-
-  _pixelRect(ctx, x, y, w, h) {
-    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
   }
 }
