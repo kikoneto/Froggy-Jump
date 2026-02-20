@@ -16,8 +16,9 @@ A cross-platform endless platformer built from scratch with pure HTML5 Canvas an
 - [Physics](#physics)
   - [Gravity](#gravity)
   - [Jump Charge](#jump-charge)
+  - [Velocity Boost](#velocity-boost)
   - [Air Drag](#air-drag)
-  - [Wall Wrap](#wall-wrap)
+  - [Wall Bounce](#wall-bounce)
 - [Platforms](#platforms)
   - [Structure](#structure)
   - [Generation](#generation)
@@ -61,15 +62,32 @@ python -m http.server 8080
 
 ```
 froggy-jump/
-├── index.html          ← canvas + HTML stats panel
-├── variables.js        ← all constants (Size, State, Physics, FPS)
-├── frog.js             ← Frog class, reset(), currentPlatform
-├── platform.js         ← Platform class, update(), wall/vertical bounce
-├── platformManager.js  ← generation, culling, collision, drawing
-└── game.js             ← Game class, wires all systems together
+├── index.html              ← canvas + HTML stats panel
+├── game.js                 ← Game class, wires all systems together
+├── variables.js            ← all constants (Size, State, Physics, FPS)
+├── entities/
+│   └── frog.js             ← Frog class, reset(), currentPlatform
+├── services/
+│   ├── platform.js         ← Platform class, update(), wall/vertical bounce
+│   └── platformManager.js  ← generation, culling, collision
+├── renderer/
+│   ├── backgroundRenderer.js  ← sky, stars, clouds with parallax
+│   ├── frogRenderer.js        ← animated frog sprite (4 frames)
+│   ├── platformRenderer.js    ← grass and stone platform tiles
+│   ├── particleSystem.js      ← jump dust and landing splash
+│   └── uiRenderer.js          ← bitmap font, HUD, screens
+├── assets/
+│   ├── frog-spritesheet.png      ← 416×50 (4 frames)
+│   └── frog-spritesheet-2x.png   ← 832×100 (4 frames, used by default)
+├── README.md               ← game mechanics documentation
+└── RENDERING.md            ← rendering system technical docs
 ```
 
-> Every number that controls game feel lives in `variables.js` or the `GEN` object at the top of `platformManager.js` — those are your two tuning files.
+> **Key tuning files:**
+>
+> - `variables.js` — all physics constants (gravity, jump power, velocity boost, air drag, wall bounce)
+> - `platformManager.js` — platform generation constants (gap sizes, speeds, widths)
+> - Rendering constants are documented in `RENDERING.md`
 
 ---
 
@@ -183,29 +201,77 @@ frog.vy = -power                            // negative = upward
 
 ---
 
+### Velocity Boost
+
+When jumping from a moving platform, the frog inherits the platform's horizontal velocity **multiplied by a boost factor**:
+
+```js
+// In updateJump()
+const platform = frog.currentPlatform;
+if (platform) {
+  frog.vx = platform.vx × FROG_VELOCITY_BOOST;
+}
+```
+
+This creates momentum-based gameplay — jumping from a fast platform propels you further horizontally.
+
+**Example:**
+
+```
+Platform moving at 120 px/s
+Boost factor = 2.0
+Jump velocity = 120 × 2.0 = 240 px/s
+```
+
+| Constant              | Value | Effect                                          |
+| --------------------- | ----- | ----------------------------------------------- |
+| `FROG_VELOCITY_BOOST` | `2.0` | Multiplier applied to platform velocity on jump |
+
+---
+
 ### Air Drag
 
 While airborne, horizontal velocity decays each frame to bleed off the velocity inherited from a moving platform:
 
 ```js
-frog.vx *= Math.max(0, 1 - 3.0 * dt);
-// coefficient 3.0 — feels natural without killing momentum instantly
+frog.vx *= Math.max(0, 1 - AIR_DRAG * dt);
 ```
 
 Without this, the frog would drift sideways indefinitely after leaving a fast-moving platform.
 
+| Constant   | Value | Effect                                    |
+| ---------- | ----- | ----------------------------------------- |
+| `AIR_DRAG` | `3.0` | Friction coefficient — higher = more drag |
+
 ---
 
-### Wall Wrap
+### Wall Bounce
 
-Only applies when **airborne**. If the frog exits either screen edge it teleports to the opposite side:
+Frog bounces off screen edges instead of wrapping. Behavior differs based on state:
+
+**When Airborne:**
 
 ```js
-if (frog.x < -hw) frog.x = width + hw;
-if (frog.x > width + hw) frog.x = -hw;
+// Hits left edge
+frog.vx = Math.abs(frog.vx) × WALL_BOUNCE_DAMPING  // Reverse direction, lose energy
+
+// Hits right edge
+frog.vx = -Math.abs(frog.vx) × WALL_BOUNCE_DAMPING  // Reverse direction, lose energy
 ```
 
-Disabled when grounded — the platform's own wall bounce handles positioning and the frog rides along.
+**When Grounded:**
+
+```js
+// Hits edge
+frog.x = clamp(frog.x, 0, width); // Hard stop at boundary
+frog.vx = 0; // Stop moving
+```
+
+The frog cannot walk through walls while standing on a platform. If the platform carries the frog to the edge, the frog stops at the boundary and can walk off to become airborne.
+
+| Constant              | Value | Effect                                     |
+| --------------------- | ----- | ------------------------------------------ |
+| `WALL_BOUNCE_DAMPING` | `0.6` | Velocity retained after bounce (0.6 = 60%) |
 
 ---
 
@@ -370,13 +436,18 @@ All feel-related constants in one place:
 
 ### `variables.js`
 
-| Constant                 | Value        | Effect                                |
-| ------------------------ | ------------ | ------------------------------------- |
-| `Physics.GRAVITY`        | `1800 px/s²` | Higher = snappier jumps, faster falls |
-| `Physics.JUMP_POWER_MIN` | `500 px/s`   | Minimum jump height                   |
-| `Physics.JUMP_POWER_MAX` | `1100 px/s`  | Maximum jump height                   |
-| `Physics.CHARGE_RATE`    | `900 px/s²`  | How fast the charge bar fills         |
-| `FPS.TARGET`             | `120`        | Target frame rate                     |
+| Constant                      | Value        | Effect                                  |
+| ----------------------------- | ------------ | --------------------------------------- |
+| `Physics.GRAVITY`             | `1800 px/s²` | Higher = snappier jumps, faster falls   |
+| `Physics.JUMP_POWER_MIN`      | `500 px/s`   | Minimum jump height                     |
+| `Physics.JUMP_POWER_MAX`      | `1100 px/s`  | Maximum jump height                     |
+| `Physics.CHARGE_RATE`         | `900 px/s²`  | How fast the charge bar fills           |
+| `Physics.FROG_W`              | `82 px`      | Frog collision box width                |
+| `Physics.FROG_H`              | `40 px`      | Frog collision box height               |
+| `Physics.FROG_VELOCITY_BOOST` | `2.0`        | Jump momentum multiplier from platforms |
+| `Physics.WALL_BOUNCE_DAMPING` | `0.6`        | Energy retained after wall bounce (60%) |
+| `Physics.AIR_DRAG`            | `3.0`        | Horizontal friction while airborne      |
+| `FPS.TARGET`                  | `120`        | Target frame rate                       |
 
 ### `platformManager.js` — `GEN` object
 
