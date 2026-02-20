@@ -1,135 +1,263 @@
 // ─────────────────────────────────────────────────────────────
 //  PlatformRenderer
-//  Draws platforms as pixel-art tiles.
-//  Two visual types derived from platform speed:
-//    grass  — slower platforms (green top, brown dirt body)
-//    stone  — faster platforms (grey with cracks)
-//
-//  Each platform is drawn as a repeating tile pattern.
+//  Draws platforms with textures that match the current level theme.
+//  Six types: grass, stone, ice, cloud, lava, crystal
 // ─────────────────────────────────────────────────────────────
+
+import { getCurrentLevel } from "../levels.js";
 
 const PX = 3;
 
-// Grass platform palette
-const GRASS = {
-  top: "#5ecf3e",
-  topLight: "#7eff5a",
-  topDark: "#3a9e24",
-  dirt: "#8b5e3c",
-  dirtDark: "#6b4028",
-  dirtLight: "#a07048",
-  root: "#5a3820",
-};
-
-// Stone platform palette
-const STONE = {
-  top: "#8899aa",
-  topLight: "#aabbcc",
-  topDark: "#667788",
-  body: "#667788",
-  bodyDark: "#445566",
-  bodyLight: "#889aaa",
-  crack: "#445566",
-};
-
 export class PlatformRenderer {
-  draw(ctx, p, screenY) {
-    const isStone = Math.abs(p.vx) + Math.abs(p.vy) > 150;
-    if (isStone) {
-      this._drawStone(ctx, p, screenY);
-    } else {
-      this._drawGrass(ctx, p, screenY);
+  draw(ctx, p, screenY, score) {
+    const level = getCurrentLevel(score);
+    const type = level.platform.type;
+    const colors = level.platform.colors;
+
+    switch (type) {
+      case "grass":
+        this._drawGrass(ctx, p, screenY, colors);
+        break;
+      case "stone":
+        this._drawStone(ctx, p, screenY, colors);
+        break;
+      case "ice":
+        this._drawIce(ctx, p, screenY, colors);
+        break;
+      case "cloud":
+        this._drawCloud(ctx, p, screenY, colors);
+        break;
+      case "lava":
+        this._drawLava(ctx, p, screenY, colors);
+        break;
+      case "crystal":
+        this._drawCrystal(ctx, p, screenY, colors);
+        break;
     }
   }
 
   // ─────────────────────────────────────────────────────────
-  //  GRASS PLATFORM
-  //  Top: 2 rows of grass pixels
-  //  Body: dirt with pixel texture
+  //  GRASS PLATFORM (Level 0: Meadow)
   // ─────────────────────────────────────────────────────────
 
-  _drawGrass(ctx, p, screenY) {
+  _drawGrass(ctx, p, screenY, C) {
     const { x, width: w, height: h } = p;
     const y = screenY;
 
-    // ── Dirt body ──
-    ctx.fillStyle = GRASS.dirt;
+    // Dirt body
+    ctx.fillStyle = C.body;
     ctx.fillRect(x, y + PX * 2, w, h - PX * 2);
 
-    // Dirt texture — darker horizontal bands
-    ctx.fillStyle = GRASS.dirtDark;
+    // Dirt texture
+    ctx.fillStyle = C.bodyDark;
     for (let tx = x + PX; tx < x + w - PX; tx += PX * 4) {
       ctx.fillRect(tx, y + PX * 3, PX, PX);
       ctx.fillRect(tx + PX * 2, y + PX * 4, PX, PX);
     }
 
-    // Dirt light highlight
-    ctx.fillStyle = GRASS.dirtLight;
+    ctx.fillStyle = C.bodyLight;
     ctx.fillRect(x + PX, y + PX * 2, w - PX * 2, PX);
 
-    // ── Grass top — two pixel rows ──
-    ctx.fillStyle = GRASS.top;
+    // Grass top
+    ctx.fillStyle = C.top;
     ctx.fillRect(x, y, w, PX * 2);
 
-    // Grass blades — lighter tufts
-    ctx.fillStyle = GRASS.topLight;
+    ctx.fillStyle = C.topLight;
     for (let tx = x + PX; tx < x + w - PX; tx += PX * 3) {
-      ctx.fillRect(tx, y, PX, PX); // single bright pixel at top
+      ctx.fillRect(tx, y, PX, PX);
     }
 
-    // Grass shadow edge
-    ctx.fillStyle = GRASS.topDark;
+    ctx.fillStyle = C.topDark;
     ctx.fillRect(x, y + PX, w, PX);
 
-    // ── Left / right edge caps ──
-    ctx.fillStyle = GRASS.root;
+    // Edges
+    ctx.fillStyle = C.edge;
     ctx.fillRect(x, y, PX, h);
     ctx.fillRect(x + w - PX, y, PX, h);
-
-    // ── Bottom edge ──
-    ctx.fillStyle = GRASS.dirtDark;
     ctx.fillRect(x, y + h - PX, w, PX);
   }
 
   // ─────────────────────────────────────────────────────────
-  //  STONE PLATFORM
-  //  Solid grey brick with cracks for fast/hard platforms
+  //  STONE PLATFORM (Level 1: Cavern)
   // ─────────────────────────────────────────────────────────
 
-  _drawStone(ctx, p, screenY) {
+  _drawStone(ctx, p, screenY, C) {
     const { x, width: w, height: h } = p;
     const y = screenY;
 
-    // ── Stone body ──
-    ctx.fillStyle = STONE.body;
+    // Body
+    ctx.fillStyle = C.body;
     ctx.fillRect(x, y, w, h);
 
-    // ── Top highlight ──
-    ctx.fillStyle = STONE.topLight;
+    // Highlight
+    ctx.fillStyle = C.topLight;
     ctx.fillRect(x + PX, y, w - PX * 2, PX);
     ctx.fillRect(x, y, PX, h - PX);
 
-    // ── Bottom / right shadow ──
-    ctx.fillStyle = STONE.bodyDark;
+    // Shadow
+    ctx.fillStyle = C.bodyDark;
     ctx.fillRect(x + PX, y + h - PX, w - PX * 2, PX);
     ctx.fillRect(x + w - PX, y + PX, PX, h - PX);
 
-    // ── Cracks — pixel lines for worn stone look ──
-    ctx.fillStyle = STONE.crack;
-    // Crack 1 — near left
+    // Cracks
+    ctx.fillStyle = C.crack;
     const c1x = x + Math.floor((w * 0.25) / PX) * PX;
     ctx.fillRect(c1x, y + PX, PX, PX * 2);
     ctx.fillRect(c1x - PX, y + PX * 3, PX, PX);
 
-    // Crack 2 — near right (only if wide enough)
     if (w > 60) {
       const c2x = x + Math.floor((w * 0.7) / PX) * PX;
       ctx.fillRect(c2x, y + PX * 2, PX, PX * 2);
       ctx.fillRect(c2x + PX, y + PX * 4, PX, PX);
     }
 
-    // ── Corners ──
-    ctx.fillStyle = STONE.bodyDark;
+    // Corners
+    ctx.fillStyle = C.bodyDark;
+    ctx.fillRect(x, y, PX, PX);
+    ctx.fillRect(x + w - PX, y, PX, PX);
+    ctx.fillRect(x, y + h - PX, PX, PX);
+    ctx.fillRect(x + w - PX, y + h - PX, PX, PX);
+  }
+
+  // ─────────────────────────────────────────────────────────
+  //  ICE PLATFORM (Level 2: Frozen Peaks)
+  // ─────────────────────────────────────────────────────────
+
+  _drawIce(ctx, p, screenY, C) {
+    const { x, width: w, height: h } = p;
+    const y = screenY;
+
+    // Body
+    ctx.fillStyle = C.body;
+    ctx.fillRect(x, y, w, h);
+
+    // Top shine
+    ctx.fillStyle = C.topLight;
+    ctx.fillRect(x, y, w, PX);
+
+    // Shine streaks
+    ctx.fillStyle = C.shine;
+    ctx.globalAlpha = 0.6;
+    for (let tx = x + PX; tx < x + w; tx += PX * 6) {
+      ctx.fillRect(tx, y + PX, PX, PX);
+      ctx.fillRect(tx + PX * 2, y + PX * 2, PX, PX);
+    }
+    ctx.globalAlpha = 1;
+
+    // Edges
+    ctx.fillStyle = C.bodyDark;
+    ctx.fillRect(x, y, PX, h);
+    ctx.fillRect(x + w - PX, y, PX, h);
+    ctx.fillRect(x, y + h - PX, w, PX);
+  }
+
+  // ─────────────────────────────────────────────────────────
+  //  CLOUD PLATFORM (Level 3: Cloud City)
+  // ─────────────────────────────────────────────────────────
+
+  _drawCloud(ctx, p, screenY, C) {
+    const { x, width: w, height: h } = p;
+    const y = screenY;
+
+    // Main body
+    ctx.fillStyle = C.body;
+    ctx.fillRect(x + PX, y + PX, w - PX * 2, h - PX * 2);
+
+    // Puffs
+    ctx.fillStyle = C.topLight;
+    for (let tx = x; tx < x + w; tx += PX * 4) {
+      ctx.fillRect(tx, y, PX * 3, PX * 2);
+    }
+
+    // Shadow bottom
+    ctx.fillStyle = C.bodyDark;
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(x + PX * 2, y + h - PX * 2, w - PX * 4, PX);
+    ctx.globalAlpha = 1;
+
+    // Soft edges
+    ctx.fillStyle = C.body;
+    ctx.fillRect(x, y + PX, PX, h - PX * 2);
+    ctx.fillRect(x + w - PX, y + PX, PX, h - PX * 2);
+  }
+
+  // ─────────────────────────────────────────────────────────
+  //  LAVA PLATFORM (Level 4: Volcano)
+  // ─────────────────────────────────────────────────────────
+
+  _drawLava(ctx, p, screenY, C) {
+    const { x, width: w, height: h } = p;
+    const y = screenY;
+    const t = Date.now() * 0.003;
+
+    // Stone body
+    ctx.fillStyle = C.body;
+    ctx.fillRect(x, y + PX * 2, w, h - PX * 2);
+
+    // Lava glow cracks
+    ctx.fillStyle = C.crack;
+    for (let tx = x + PX * 2; tx < x + w - PX * 2; tx += PX * 5) {
+      const flicker = 0.7 + 0.3 * Math.sin(t * 3 + tx * 0.1);
+      ctx.globalAlpha = flicker;
+      ctx.fillRect(tx, y + PX * 3, PX, PX * 2);
+    }
+    ctx.globalAlpha = 1;
+
+    // Hot top
+    ctx.fillStyle = C.top;
+    ctx.fillRect(x, y, w, PX * 2);
+
+    // Glow
+    ctx.fillStyle = C.glow;
+    ctx.globalAlpha = 0.5 + 0.3 * Math.sin(t * 2);
+    ctx.fillRect(x, y, w, PX);
+    ctx.globalAlpha = 1;
+
+    // Dark edges
+    ctx.fillStyle = C.bodyDark;
+    ctx.fillRect(x, y, PX, h);
+    ctx.fillRect(x + w - PX, y, PX, h);
+    ctx.fillRect(x, y + h - PX, w, PX);
+  }
+
+  // ─────────────────────────────────────────────────────────
+  //  CRYSTAL PLATFORM (Level 5: Space)
+  // ─────────────────────────────────────────────────────────
+
+  _drawCrystal(ctx, p, screenY, C) {
+    const { x, width: w, height: h } = p;
+    const y = screenY;
+    const t = Date.now() * 0.002;
+
+    // Body
+    ctx.fillStyle = C.body;
+    ctx.fillRect(x, y, w, h);
+
+    // Facets
+    ctx.fillStyle = C.bodyLight;
+    for (let tx = x; tx < x + w; tx += PX * 4) {
+      ctx.fillRect(tx, y, PX * 2, h);
+    }
+
+    // Shine
+    ctx.fillStyle = C.shine;
+    ctx.globalAlpha = 0.7 + 0.3 * Math.sin(t * 3);
+    for (let tx = x + PX; tx < x + w; tx += PX * 6) {
+      ctx.fillRect(tx, y + PX, PX, PX);
+      ctx.fillRect(tx + PX, y + PX * 3, PX, PX);
+    }
+    ctx.globalAlpha = 1;
+
+    // Glow edges
+    ctx.fillStyle = C.glow;
+    ctx.globalAlpha = 0.4 + 0.2 * Math.sin(t * 2);
+    ctx.fillRect(x, y, w, PX);
+    ctx.fillRect(x, y, PX, h);
+    ctx.fillRect(x + w - PX, y, PX, h);
+    ctx.globalAlpha = 1;
+
+    // Dark corners
+    ctx.fillStyle = C.bodyDark;
     ctx.fillRect(x, y, PX, PX);
     ctx.fillRect(x + w - PX, y, PX, PX);
     ctx.fillRect(x, y + h - PX, PX, PX);

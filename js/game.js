@@ -1,6 +1,7 @@
 import { Frog } from "./entities/frog.js";
 import { PlatformManager } from "./services/platformManager.js";
 import { State, Size, Physics, FPS } from "./variables.js";
+import { getCurrentLevel } from "./levels.js";
 import { BackgroundRenderer } from "./renderer/backgroundRenderer.js";
 import { FrogRenderer } from "./renderer/frogRenderer.js";
 import { PlatformRenderer } from "./renderer/platformRenderer.js";
@@ -152,7 +153,12 @@ export class Game {
         this.updatePlatformCollision();
         this.updateCamera();
         this.updateScore();
-        this.platformManager.update(this.cameraY, this.difficulty, dt);
+        this.platformManager.update(
+          this.cameraY,
+          this.difficulty,
+          dt,
+          this.score,
+        );
         this.particles.update(dt);
         this.updateDeathCheck();
         break;
@@ -328,8 +334,8 @@ export class Game {
 
     ctx.clearRect(0, 0, width, height);
 
-    // Background (always drawn, even on overlays)
-    this.bgRenderer.draw(ctx, cameraY);
+    // Background (always drawn, even on overlays) - pass score for level system
+    this.bgRenderer.draw(ctx, cameraY, this.score);
 
     switch (this.currentState) {
       case State.IDLE:
@@ -353,11 +359,11 @@ export class Game {
   drawGame() {
     const { ctx, frog, cameraY } = this;
 
-    // Platforms
+    // Platforms - pass score for level-based textures
     for (const p of this.platformManager.platforms) {
       const screenY = p.y - cameraY;
       if (screenY > this.height + 20 || screenY < -20) continue;
-      this.platformRenderer.draw(ctx, p, screenY);
+      this.platformRenderer.draw(ctx, p, screenY, this.score);
     }
 
     // Particles (behind frog)
@@ -368,7 +374,9 @@ export class Game {
 
     // HUD — only show score during active play, not on idle/dead overlays
     if (this.currentState === State.PLAYING) {
-      this.ui.drawScore(ctx, this.score, this.bestScore);
+      const level = getCurrentLevel(this.score);
+      this.ui.drawLevelProgress(ctx, this.score);
+      this.ui.drawScore(ctx, this.score, this.bestScore, level.name);
       this.ui.drawChargeBar(ctx, frog, cameraY, Physics.JUMP_POWER_MAX);
     }
   }

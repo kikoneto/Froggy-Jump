@@ -14,7 +14,7 @@ export const Physics = Object.freeze({
   GRAVITY: 1800, // px/s² — downward acceleration
   JUMP_POWER_MIN: 500, // px/s — minimum jump (tiny tap)
   JUMP_POWER_MAX: 1100, // px/s — maximum jump (full charge)
-  CHARGE_RATE: 1800, // px/s added per second of holding
+  CHARGE_RATE: 2000, // px/s added per second of holding
 
   // Frog dimensions
   FROG_W: 82, // px — frog collision width (matches sprite)
@@ -41,26 +41,37 @@ export const Scoring = Object.freeze({
   DIFFICULTY_INTERVAL: 5, // score — difficulty increases every N points
 });
 
-export const Platforms = Object.freeze({
-  // Width progression
-  WIDTH_MAX: 110, // px — widest a platform can be
-  WIDTH_MIN: 55, // px — narrowest (never goes below this)
-  WIDTH_SCALE: 1.2, // px — width lost per difficulty level
+export const Levels = Object.freeze({
+  // Level transition thresholds (score required to reach each level)
+  // Each level requires 40-60+ successful jumps - epic progression system
+  MEADOW_THRESHOLD: 0, // Level 0: Tutorial/Starting (40 jumps to 120)
+  CAVERN_THRESHOLD: 120, // Level 1: Underground depths (50 jumps to 280)
+  FROZEN_THRESHOLD: 280, // Level 2: Icy peaks (60 jumps to 500)
+  CLOUD_THRESHOLD: 500, // Level 3: Sky realm (70 jumps to 800)
+  VOLCANO_THRESHOLD: 800, // Level 4: Inferno (80 jumps to 1200)
+  SPACE_THRESHOLD: 1200, // Level 5: Cosmic endgame (master level)
+});
 
-  // Vertical gap progression
-  GAP_Y_BASE: 90, // px — vertical gap at difficulty 0
-  GAP_Y_MAX: 160, // px — vertical gap cap (keeps game beatable)
-  GAP_Y_SCALE: 0.03, // multiplier — gap growth per difficulty unit
+export const Platforms = Object.freeze({
+  // Width progression - EASIER: platforms stay wider longer
+  WIDTH_MAX: 120, // px — widest (was 110, now 10px wider)
+  WIDTH_MIN: 65, // px — narrowest (was 55, now 10px wider minimum)
+  WIDTH_SCALE: 0.8, // px — width lost per difficulty (was 1.2, now 33% slower shrink)
+
+  // Vertical gap progression - EASIER: smaller gaps
+  GAP_Y_BASE: 80, // px — vertical gap at difficulty 0 (was 90, now 10px smaller)
+  GAP_Y_MAX: 140, // px — vertical gap cap (was 160, now 20px smaller)
+  GAP_Y_SCALE: 0.02, // multiplier — gap growth (was 0.03, now 33% slower growth)
 
   // Positioning
   MARGIN: 20, // px — min distance from screen edges
   INITIAL_COUNT: 16, // count — platforms generated at game start
 
-  // Movement speeds
-  SPEED_X_BASE: 70, // px/s — horizontal speed at difficulty 0
-  SPEED_Y_BASE: 45, // px/s — vertical speed at difficulty 0
-  SPEED_SCALE: 8, // px/s — speed added per difficulty level
-  SPEED_MAX: 280, // px/s — absolute speed ceiling
+  // Movement speeds - EASIER: slower platforms
+  SPEED_X_BASE: 50, // px/s — horizontal speed at difficulty 0 (was 70, now 29% slower)
+  SPEED_Y_BASE: 35, // px/s — vertical speed at difficulty 0 (was 45, now 22% slower)
+  SPEED_SCALE: 6, // px/s — speed added per difficulty (was 8, now 25% slower growth)
+  SPEED_MAX: 220, // px/s — absolute speed ceiling (was 280, now 21% lower cap)
 });
 
 export const FPS = Object.freeze({
