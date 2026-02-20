@@ -5,6 +5,11 @@
 // ─────────────────────────────────────────────────────────────
 
 import { Size } from "../variables.js";
+import {
+  getCurrentLevel,
+  getLevelTransitionProgress,
+  LEVELS,
+} from "../levels.js";
 
 const W = Size.LOGICAL_WIDTH;
 const H = Size.LOGICAL_HEIGHT;
@@ -60,14 +65,121 @@ const FONT = {
 
 export class UIRenderer {
   // ── Draw score HUD (top right) — only during PLAYING ──
-  drawScore(ctx, score, bestScore) {
-    this._panel(ctx, W - 90, 8, 82, 36);
+  drawScore(ctx, score, bestScore, levelName) {
+    // Moved down to avoid overlap with progress bar
+    const panelY = 52;
+    this._panel(ctx, W - 90, panelY, 82, 50);
 
+    // Score
     ctx.fillStyle = "#ffdd44";
-    this._pixelText(ctx, String(score), W - 86, 14, 2);
+    this._pixelText(ctx, String(score), W - 86, panelY + 6, 2);
 
+    // Best score
     ctx.fillStyle = "#aaaacc";
-    this._pixelText(ctx, "B:" + String(bestScore), W - 86, 26, 1);
+    this._pixelText(ctx, "B:" + String(bestScore), W - 86, panelY + 18, 1);
+
+    // Level name
+    ctx.fillStyle = "#88ff88";
+    this._pixelText(ctx, levelName.toUpperCase(), W - 86, panelY + 30, 1);
+  }
+
+  // ── Draw level progress bar (top center) ──
+  drawLevelProgress(ctx, score) {
+    const currentLevel = getCurrentLevel(score);
+    const progress = getLevelTransitionProgress(score);
+    const nextLevelIndex = currentLevel.id + 1;
+    const isMaxLevel = nextLevelIndex >= LEVELS.length;
+
+    // Bar dimensions - moved down to be fully visible
+    const barWidth = 280;
+    const barHeight = 8;
+    const barX = (W - barWidth) / 2;
+    const barY = 18; // Moved down from 8 to give space for level text
+
+    // Background panel
+    this._panel(ctx, barX - 4, barY - 4, barWidth + 8, barHeight + 18);
+
+    // Level indicator dots (show all 6 levels)
+    const dotSpacing = barWidth / 6;
+    for (let i = 0; i < 6; i++) {
+      const dotX = barX + dotSpacing * i + dotSpacing / 2 - 2;
+      const dotY = barY + barHeight + 6;
+
+      if (i < currentLevel.id) {
+        // Completed levels - filled dot
+        ctx.fillStyle = "#88ff88";
+        ctx.fillRect(dotX, dotY, 4, 4);
+      } else if (i === currentLevel.id) {
+        // Current level - pulsing dot
+        const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.003);
+        ctx.globalAlpha = pulse;
+        ctx.fillStyle = "#ffdd44";
+        ctx.fillRect(dotX - 1, dotY - 1, 6, 6);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#ffdd44";
+        ctx.fillRect(dotX, dotY, 4, 4);
+      } else {
+        // Future levels - empty dot
+        ctx.fillStyle = "#333344";
+        ctx.fillRect(dotX, dotY, 4, 4);
+      }
+    }
+
+    // Progress bar background
+    ctx.fillStyle = "#1a1a2e";
+    ctx.fillRect(barX, barY, barWidth, barHeight);
+
+    // Progress bar fill
+    const fillWidth = Math.floor(barWidth * progress);
+
+    // Color based on level
+    const levelColors = [
+      "#5ecf3e", // Meadow - green
+      "#8899aa", // Cavern - grey
+      "#aaddff", // Frozen - blue
+      "#e8e8ff", // Cloud - white
+      "#ff6644", // Volcano - orange
+      "#ff44ff", // Space - pink
+    ];
+
+    ctx.fillStyle = levelColors[currentLevel.id];
+    ctx.fillRect(barX, barY, fillWidth, barHeight);
+
+    // Shine on progress bar
+    ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.fillRect(barX, barY, fillWidth, PX);
+
+    // Level text above bar
+    ctx.fillStyle = "#aaaacc";
+    const levelText = isMaxLevel
+      ? `LV ${currentLevel.id + 1}: ${currentLevel.name.toUpperCase()}`
+      : `LV ${currentLevel.id + 1}: ${currentLevel.name.toUpperCase()}`;
+    const textWidth = levelText.length * 6;
+    this._pixelText(
+      ctx,
+      levelText,
+      barX + (barWidth - textWidth) / 2,
+      barY - 10,
+      1,
+    );
+
+    // Next level preview (if not at max)
+    if (!isMaxLevel) {
+      const nextLevel = LEVELS[nextLevelIndex];
+      const scoreNeeded = nextLevel.scoreThreshold - score;
+
+      if (scoreNeeded <= 50) {
+        // Show "NEXT: NAME" when close
+        ctx.fillStyle = "#666688";
+        const nextText = `NEXT: ${nextLevel.name.toUpperCase()}`;
+        const nextTextWidth = nextText.length * 4;
+        this._pixelText(ctx, nextText, W - nextTextWidth - 10, barY, 0.7);
+      }
+    } else {
+      // Max level indicator
+      ctx.fillStyle = "#ff88ff";
+      this._pixelText(ctx, "MAX LV", W - 40, barY, 0.7);
+    }
   }
 
   // ── Draw charge bar (above frog) ──

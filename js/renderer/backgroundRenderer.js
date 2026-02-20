@@ -1,149 +1,207 @@
 // ─────────────────────────────────────────────────────────────
 //  BackgroundRenderer
-//  Three parallax layers:
-//  1. Sky gradient (static)
-//  2. Stars (slow scroll, twinkle)
-//  3. Clouds (medium scroll, chunky pixel shapes)
+//  Three parallax layers with SMOOTH TRANSITIONS between levels:
+//  1. Sky gradient (lerps between level colors)
+//  2. Stars (count and color smoothly transition)
+//  3. Clouds (count and color smoothly transition)
 // ─────────────────────────────────────────────────────────────
 
-import { Size } from "../variables.js";
+import { Size } from '../variables.js';
+import { getCurrentLevel, getLevelTransitionProgress, LEVELS } from '../levels.js';
 
 const W = Size.LOGICAL_WIDTH;
 const H = Size.LOGICAL_HEIGHT;
-
-// Pixel size for chunky art feel
 const PX = 3;
 
 export class BackgroundRenderer {
+
   constructor() {
-    this.stars = this._genStars(60);
-    this.clouds = this._genClouds(8);
+    this.stars = [];
+    this.clouds = [];
+    this.currentLevelId = -1;
+    this.transitionProgress = 0; // 0 = start of level, 1 = end of level
   }
 
-  // ── Public draw — called every frame ──
-  draw(ctx, cameraY) {
-    this._drawSky(ctx);
-    this._drawStars(ctx, cameraY);
-    this._drawClouds(ctx, cameraY);
+  draw(ctx, cameraY, score) {
+    const currentLevel = getCurrentLevel(score);
+    const progress = getLevelTransitionProgress(score);
+    
+    // Detect level change
+    if (currentLevel.id !== this.currentLevelId) {
+      this._onLevelChange(currentLevel);
+      this.currentLevelId = currentLevel.id;
+    }
+    
+    this.transitionProgress = progress;
+    
+    // Get next level for smooth blending
+    const nextLevelIndex = currentLevel.id + 1;
+    const nextLevel = nextLevelIndex < LEVELS.length ? LEVELS[nextLevelIndex] : currentLevel;
+    
+    this._drawSky(ctx, currentLevel, nextLevel, progress);
+    this._drawStars(ctx, cameraY, currentLevel, nextLevel, progress);
+    this._drawClouds(ctx, cameraY, currentLevel, nextLevel, progress);
+  }
+
+  _onLevelChange(level) {
+    // Regenerate stars/clouds for new level
+    const targetCount = level.stars.count;
+    
+    // Smoothly add/remove stars to reach target count
+    if (this.stars.length < targetCount) {
+      // Add stars
+      while (this.stars.length < targetCount) {
+        this.stars.push(this._createStar());
+      }
+    } else if (this.stars.length > targetCount) {
+      // Remove excess stars
+      this.stars = this.stars.slice(0, targetCount);
+    }
+    
+    // Same for clouds
+    const targetCloudCount = level.clouds.count;
+    if (this.clouds.length < targetCloudCount) {
+      while (this.clouds.length < targetCloudCount) {
+        this.clouds.push(this._createCloud());
+      }
+    } else if (this.clouds.length > targetCloudCount) {
+      this.clouds = this.clouds.slice(0, targetCloudCount);
+    }
+    
+    console.log(`Level ${level.id}: ${level.name} (${this.stars.length} stars, ${this.clouds.length} clouds)`);
+  }
+
+  // Helper to create single star
+  _createStar() {
+    return {
+      x:       Math.random() * W,
+      worldY:  Math.random() * H * 20,
+      size:    Math.random() < 0.3 ? 3 : 2,
+      phase:   Math.random() * Math.PI * 2,
+      speed:   0.05 + Math.random() * 0.1,
+    };
+  }
+
+  // Helper to create single cloud
+  _createCloud() {
+    return {
+      x:      Math.random() * W,
+      worldY: Math.random() * H * 15,
+      width:  40 + Math.random() * 80,
+      height: 20 + Math.random() * 30,
+      speed:  0.15 + Math.random() * 0.1,
+    };
   }
 
   // ─────────────────────────────────────────────────────────
-  //  SKY — two-tone pixel gradient (banded, not smooth)
+  //  SKY — SMOOTH COLOR TRANSITIONS
   // ─────────────────────────────────────────────────────────
 
-  _drawSky(ctx) {
-    // Band the sky into 8 horizontal strips for pixel feel
-    const bands = [
-      "#0a0a1e",
-      "#0c0c22",
-      "#0e0e28",
-      "#10102e",
-      "#121234",
-      "#141438",
-      "#16163c",
-      "#181840",
-    ];
-    const bandH = Math.ceil(H / bands.length);
-    bands.forEach((color, i) => {
-      ctx.fillStyle = color;
+  _drawSky(ctx, currentLevel, nextLevel, progress) {
+    const currentBands = currentLevel.sky.bands;
+    const nextBands = nextLevel.sky.bands;
+    const bandH = Math.ceil(H / currentBands.length);
+    
+    currentBands.forEach((currentColor, i) => {
+      const nextColor = nextBands[i] || currentColor;
+      
+      // Lerp between colors
+      const blendedColor = this._lerpColor(currentColor, nextColor, progress);
+      
+      ctx.fillStyle = blendedColor;
       ctx.fillRect(0, i * bandH, W, bandH + 1);
     });
   }
 
-  // ─────────────────────────────────────────────────────────
-  //  STARS — chunky 2×2 or 3×3 pixel dots, slow parallax
-  // ─────────────────────────────────────────────────────────
-
-  _genStars(count) {
-    return Array.from({ length: count }, () => ({
-      x: Math.random() * W,
-      worldY: Math.random() * H * 20, // spread over 20 screens
-      size: Math.random() < 0.3 ? 3 : 2,
-      phase: Math.random() * Math.PI * 2,
-      speed: 0.05 + Math.random() * 0.1, // parallax factor
-    }));
+  // Linear interpolation between two hex colors
+  _lerpColor(color1, color2, t) {
+    const r1 = parseInt(color1.slice(1, 3), 16);
+    const g1 = parseInt(color1.slice(3, 5), 16);
+    const b1 = parseInt(color1.slice(5, 7), 16);
+    
+    const r2 = parseInt(color2.slice(1, 3), 16);
+    const g2 = parseInt(color2.slice(3, 5), 16);
+    const b2 = parseInt(color2.slice(5, 7), 16);
+    
+    const r = Math.round(r1 + (r2 - r1) * t);
+    const g = Math.round(g1 + (g2 - g1) * t);
+    const b = Math.round(b1 + (b2 - b1) * t);
+    
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }
 
-  _drawStars(ctx, cameraY) {
+  // ─────────────────────────────────────────────────────────
+  //  STARS — smooth color transitions
+  // ─────────────────────────────────────────────────────────
+
+  _drawStars(ctx, cameraY, currentLevel, nextLevel, progress) {
     const t = Date.now() * 0.001;
-    this.stars.forEach((s) => {
-      // Parallax: stars scroll slower than the world (factor s.speed)
-      const screenY =
-        (((s.worldY - cameraY * s.speed) % (H * 20)) + H * 20) % (H * 20);
-      if (screenY < -4 || screenY > H + 4) return;
-
-      const twinkle = 0.5 + 0.5 * Math.sin(t * 2 + s.phase);
-      const alpha = 0.4 + 0.5 * twinkle;
-
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = twinkle > 0.7 ? "#ffffff" : "#aaaacc";
+    
+    // Lerp star color
+    const starColor = this._lerpColor(
+      currentLevel.stars.color,
+      nextLevel.stars.color,
+      progress
+    );
+    
+    for (const star of this.stars) {
+      const parallaxY = star.worldY - cameraY * star.speed;
+      const y = parallaxY % (H + 100) - 50;
+      
+      if (y < -10 || y > H + 10) continue;
+      
+      const brightness = 0.5 + 0.5 * Math.sin(t * star.speed * 2 + star.phase);
+      ctx.globalAlpha = brightness;
+      ctx.fillStyle = starColor;
+      
       ctx.fillRect(
-        Math.floor(s.x / PX) * PX,
-        Math.floor(screenY / PX) * PX,
-        s.size,
-        s.size,
+        Math.floor(star.x / PX) * PX,
+        Math.floor(y / PX) * PX,
+        star.size, star.size
       );
-    });
+    }
+    
     ctx.globalAlpha = 1;
   }
 
   // ─────────────────────────────────────────────────────────
-  //  CLOUDS — chunky pixel blobs, medium parallax
+  //  CLOUDS — smooth color transitions
   // ─────────────────────────────────────────────────────────
 
-  // Each cloud is a list of [dx, dy, w, h] pixel-art blocks
-  _cloudShape() {
-    const shapes = [
-      // Wide flat cloud
-      [
-        [0, 2, 6, 2],
-        [1, 1, 4, 1],
-        [2, 0, 2, 1],
-      ],
-      // Tall puffy cloud
-      [
-        [0, 2, 4, 2],
-        [1, 1, 3, 2],
-        [1, 0, 2, 1],
-      ],
-      // Small wispy cloud
-      [
-        [0, 1, 5, 1],
-        [1, 0, 3, 1],
-      ],
-    ];
-    return shapes[Math.floor(Math.random() * shapes.length)];
-  }
-
-  _genClouds(count) {
-    return Array.from({ length: count }, () => ({
-      x: Math.random() * W,
-      worldY: Math.random() * H * 15,
-      scale: (Math.random() * 2 + 2) * PX, // 2–4 × PX per block
-      shape: this._cloudShape(),
-      alpha: 0.06 + Math.random() * 0.08,
-      speed: 0.2 + Math.random() * 0.15, // parallax factor
-    }));
-  }
-
-  _drawClouds(ctx, cameraY) {
-    this.clouds.forEach((c) => {
-      const screenY =
-        (((c.worldY - cameraY * c.speed) % (H * 15)) + H * 15) % (H * 15);
-      if (screenY < -100 || screenY > H + 100) return;
-
-      ctx.globalAlpha = c.alpha;
-      ctx.fillStyle = "#c8d8ff";
-
-      c.shape.forEach(([dx, dy, bw, bh]) => {
-        ctx.fillRect(
-          Math.floor(c.x) + dx * c.scale,
-          Math.floor(screenY) + dy * c.scale,
-          bw * c.scale,
-          bh * c.scale,
-        );
-      });
-    });
+  _drawClouds(ctx, cameraY, currentLevel, nextLevel, progress) {
+    // Lerp cloud color
+    const cloudColor = this._lerpColor(
+      currentLevel.clouds.color,
+      nextLevel.clouds.color,
+      progress
+    );
+    
+    for (const cloud of this.clouds) {
+      const parallaxY = cloud.worldY - cameraY * cloud.speed;
+      const y = parallaxY % (H + 200) - 100;
+      
+      if (y < -cloud.height - 10 || y > H + 10) continue;
+      
+      ctx.fillStyle = cloudColor;
+      ctx.globalAlpha = 0.6;
+      
+      const cx = Math.floor(cloud.x / PX) * PX;
+      const cy = Math.floor(y / PX) * PX;
+      const w = Math.floor(cloud.width / PX) * PX;
+      const h = Math.floor(cloud.height / PX) * PX;
+      
+      // Chunky cloud shape
+      ctx.fillRect(cx + PX * 2, cy, w - PX * 4, h);
+      ctx.fillRect(cx, cy + PX * 2, w, h - PX * 4);
+      ctx.fillRect(cx + PX, cy + PX, w - PX * 2, h - PX * 2);
+      
+      // Top bumps
+      for (let i = 0; i < 3; i++) {
+        const bumpX = cx + (w / 4) * (i + 0.5);
+        ctx.fillRect(bumpX, cy - PX, PX * 2, PX * 2);
+      }
+    }
+    
     ctx.globalAlpha = 1;
   }
 }
