@@ -432,9 +432,9 @@ difficulty = Math.floor(score / 5);
 
 ## Tuning Reference
 
-All feel-related constants in one place:
+All game feel constants in one place:
 
-### `variables.js`
+### `variables.js` — Physics
 
 | Constant                      | Value        | Effect                                  |
 | ----------------------------- | ------------ | --------------------------------------- |
@@ -447,17 +447,40 @@ All feel-related constants in one place:
 | `Physics.FROG_VELOCITY_BOOST` | `2.0`        | Jump momentum multiplier from platforms |
 | `Physics.WALL_BOUNCE_DAMPING` | `0.6`        | Energy retained after wall bounce (60%) |
 | `Physics.AIR_DRAG`            | `3.0`        | Horizontal friction while airborne      |
-| `FPS.TARGET`                  | `120`        | Target frame rate                       |
 
-### `platformManager.js` — `GEN` object
+### `variables.js` — Platforms
 
-| Constant       | Value      | Effect                                  |
-| -------------- | ---------- | --------------------------------------- |
-| `WIDTH_MAX`    | `110 px`   | Starting platform width                 |
-| `WIDTH_MIN`    | `40 px`    | Narrowest a platform ever gets          |
-| `GAP_Y_BASE`   | `90 px`    | Starting vertical gap between platforms |
-| `GAP_Y_MAX`    | `160 px`   | Largest vertical gap                    |
-| `SPEED_X_BASE` | `70 px/s`  | Horizontal speed at difficulty 0        |
-| `SPEED_Y_BASE` | `45 px/s`  | Vertical speed at difficulty 0          |
-| `SPEED_SCALE`  | `8 px/s`   | Speed added per difficulty level        |
-| `SPEED_MAX`    | `280 px/s` | Absolute speed ceiling                  |
+| Constant                 | Value      | Effect                                         |
+| ------------------------ | ---------- | ---------------------------------------------- |
+| `Platforms.WIDTH_MAX`    | `110 px`   | Starting platform width                        |
+| `Platforms.WIDTH_MIN`    | `55 px`    | Minimum platform width (never goes below this) |
+| `Platforms.WIDTH_SCALE`  | `1.2 px`   | Width lost per difficulty level                |
+| `Platforms.GAP_Y_BASE`   | `90 px`    | Starting vertical gap between platforms        |
+| `Platforms.GAP_Y_MAX`    | `160 px`   | Maximum vertical gap (keeps game beatable)     |
+| `Platforms.GAP_Y_SCALE`  | `0.03`     | Gap growth rate per difficulty level           |
+| `Platforms.SPEED_X_BASE` | `70 px/s`  | Horizontal speed at difficulty 0               |
+| `Platforms.SPEED_Y_BASE` | `45 px/s`  | Vertical speed at difficulty 0                 |
+| `Platforms.SPEED_SCALE`  | `8 px/s`   | Speed added per difficulty level               |
+| `Platforms.SPEED_MAX`    | `280 px/s` | Absolute speed ceiling                         |
+| `Platforms.MARGIN`       | `20 px`    | Minimum distance from screen edges             |
+
+### Example Calculations
+
+**Platform width at different difficulties:**
+
+```
+Difficulty  0: 110px (WIDTH_MAX)
+Difficulty 10: 98px  (110 - 10×1.2)
+Difficulty 20: 86px  (110 - 20×1.2)
+Difficulty 45: 56px  (110 - 45×1.2)
+Difficulty 46: 55px  (hits WIDTH_MIN floor)
+```
+
+**Platform speed at different difficulties:**
+
+```
+Difficulty  0: 70 px/s  (SPEED_X_BASE)
+Difficulty 10: 150 px/s (70 + 10×8)
+Difficulty 20: 230 px/s (70 + 20×8)
+Difficulty 26: 280 px/s (hits SPEED_MAX ceiling)
+```

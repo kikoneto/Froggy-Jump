@@ -1,33 +1,11 @@
 import { Platform } from "../entities/platform.js";
-import { Size, Physics } from "../variables.js";
-
-// ─────────────────────────────────────────────────────────────
-//  Generation constants
-//  These define the space between platforms.
-//  GAP_Y is the vertical distance between platform tops —
-//  it increases with difficulty so jumps become harder.
-// ─────────────────────────────────────────────────────────────
-
-const GEN = Object.freeze({
-  WIDTH_MAX: 110, // widest a platform can be (px)
-  WIDTH_MIN: 40, // narrowest (px) — never goes below this
-  GAP_Y_BASE: 90, // vertical gap at difficulty 0 (px)
-  GAP_Y_MAX: 160, // vertical gap cap so it stays beatable
-  GAP_Y_SCALE: 0.03, // how much gap grows per difficulty unit
-  MARGIN: 20, // min distance from screen edges (px)
-  INITIAL_COUNT: 16,
-
-  // ── Movement speeds ──
-  SPEED_X_BASE: 70, // px/s horizontal at difficulty 0  (was 120)
-  SPEED_Y_BASE: 45, // px/s vertical at difficulty 0    (was 80)
-  SPEED_SCALE: 8, // extra px/s per difficulty level  (was 15)
-  SPEED_MAX: 280, // absolute cap                     (was 400)
-});
+import { Size, Physics, Platforms } from "../variables.js";
 
 // ─────────────────────────────────────────────────────────────
 //  PlatformManager
 //  Owns the list of active platforms.
-//  Called by Game every frame to update, draw, and collide.
+//  Called by Game every frame to update and collide.
+//  All generation constants now in variables.js → Platforms
 // ─────────────────────────────────────────────────────────────
 
 export class PlatformManager {
@@ -58,7 +36,7 @@ export class PlatformManager {
     );
 
     // Pre-generate platforms filling two screens above the start
-    for (let i = 0; i < GEN.INITIAL_COUNT; i++) {
+    for (let i = 0; i < Platforms.INITIAL_COUNT; i++) {
       this._generateNext(0);
     }
   }
@@ -131,28 +109,31 @@ export class PlatformManager {
 
   // Generates the next platform above the current highest one
   _generateNext(difficulty) {
-    // Width shrinks with difficulty
-    const width = Math.max(GEN.WIDTH_MIN, GEN.WIDTH_MAX - difficulty * 2);
+    // Width shrinks with difficulty, using WIDTH_SCALE for tunable rate
+    const width = Math.max(
+      Platforms.WIDTH_MIN,
+      Platforms.WIDTH_MAX - difficulty * Platforms.WIDTH_SCALE,
+    );
 
     // Vertical gap grows with difficulty
     const gapY = Math.min(
-      GEN.GAP_Y_BASE + difficulty * GEN.GAP_Y_SCALE * 100,
-      GEN.GAP_Y_MAX,
+      Platforms.GAP_Y_BASE + difficulty * Platforms.GAP_Y_SCALE * 100,
+      Platforms.GAP_Y_MAX,
     );
 
     const y = this.highestY - gapY;
 
-    const maxX = Size.LOGICAL_WIDTH - width - GEN.MARGIN;
-    const x = GEN.MARGIN + Math.random() * (maxX - GEN.MARGIN);
+    const maxX = Size.LOGICAL_WIDTH - width - Platforms.MARGIN;
+    const x = Platforms.MARGIN + Math.random() * (maxX - Platforms.MARGIN);
 
     // ── Speed scales with difficulty, capped at max ──
     const speed = Math.min(
-      GEN.SPEED_X_BASE + difficulty * GEN.SPEED_SCALE,
-      GEN.SPEED_MAX,
+      Platforms.SPEED_X_BASE + difficulty * Platforms.SPEED_SCALE,
+      Platforms.SPEED_MAX,
     );
     const speedY = Math.min(
-      GEN.SPEED_Y_BASE + difficulty * GEN.SPEED_SCALE * 0.6,
-      GEN.SPEED_MAX * 0.6,
+      Platforms.SPEED_Y_BASE + difficulty * Platforms.SPEED_SCALE * 0.6,
+      Platforms.SPEED_MAX * 0.6,
     );
 
     // Random starting direction for each axis independently

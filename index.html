@@ -23,11 +23,20 @@
         overflow: hidden;
         gap: 20px;
         font-family: monospace;
+        /* Disable text selection and touch behaviors */
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
       }
 
       canvas {
         display: block;
         flex-shrink: 0;
+        /* Prevent touch actions that interfere with game input */
+        touch-action: none;
       }
 
       /* ── Stats panel ── */

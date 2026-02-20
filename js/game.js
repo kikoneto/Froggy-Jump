@@ -56,6 +56,7 @@ export class Game {
 
     // ── Input ──
     this.input = { held: false, released: false };
+    this.ignoreNextRelease = false; // Flag to ignore release after starting game
 
     // ── Bootstrap ──
     this._bindInput();
@@ -442,12 +443,27 @@ export class Game {
       e.preventDefault();
       this.onInputEnd();
     });
+
+    // Disable right-click context menu on canvas
+    this.canvas.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+    });
+
+    // Also disable on entire document to prevent any right-click menus
+    document.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+    });
   }
 
   onInputStart() {
     if (this.currentState === State.IDLE) {
       this.setState(State.PLAYING);
       this.init();
+      // Explicitly clear all input state to prevent charge from building
+      this.frog.charge = 0;
+      this.input.held = false;
+      this.input.released = false;
+      this.ignoreNextRelease = true;
       return;
     }
     if (this.currentState === State.DEAD) {
@@ -459,6 +475,17 @@ export class Game {
 
   onInputEnd() {
     if (this.currentState !== State.PLAYING) return;
+
+    // Ignore the release if it's from the press that started the game
+    if (this.ignoreNextRelease) {
+      this.ignoreNextRelease = false;
+      // Defensively clear all input state
+      this.input.held = false;
+      this.input.released = false;
+      this.frog.charge = 0;
+      return;
+    }
+
     this.input.held = false;
     this.input.released = true;
   }

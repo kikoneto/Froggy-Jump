@@ -14,7 +14,7 @@ export const Physics = Object.freeze({
   GRAVITY: 1800, // px/s² — downward acceleration
   JUMP_POWER_MIN: 500, // px/s — minimum jump (tiny tap)
   JUMP_POWER_MAX: 1100, // px/s — maximum jump (full charge)
-  CHARGE_RATE: 900, // px/s added per second of holding
+  CHARGE_RATE: 1800, // px/s added per second of holding
 
   // Frog dimensions
   FROG_W: 82, // px — frog collision width (matches sprite)
@@ -39,6 +39,28 @@ export const Camera = Object.freeze({
 export const Scoring = Object.freeze({
   HEIGHT_TO_SCORE: 10, // px — how many pixels of height = 1 score point
   DIFFICULTY_INTERVAL: 5, // score — difficulty increases every N points
+});
+
+export const Platforms = Object.freeze({
+  // Width progression
+  WIDTH_MAX: 110, // px — widest a platform can be
+  WIDTH_MIN: 55, // px — narrowest (never goes below this)
+  WIDTH_SCALE: 1.2, // px — width lost per difficulty level
+
+  // Vertical gap progression
+  GAP_Y_BASE: 90, // px — vertical gap at difficulty 0
+  GAP_Y_MAX: 160, // px — vertical gap cap (keeps game beatable)
+  GAP_Y_SCALE: 0.03, // multiplier — gap growth per difficulty unit
+
+  // Positioning
+  MARGIN: 20, // px — min distance from screen edges
+  INITIAL_COUNT: 16, // count — platforms generated at game start
+
+  // Movement speeds
+  SPEED_X_BASE: 70, // px/s — horizontal speed at difficulty 0
+  SPEED_Y_BASE: 45, // px/s — vertical speed at difficulty 0
+  SPEED_SCALE: 8, // px/s — speed added per difficulty level
+  SPEED_MAX: 280, // px/s — absolute speed ceiling
 });
 
 export const FPS = Object.freeze({
