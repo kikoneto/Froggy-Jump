@@ -1,5 +1,6 @@
-import { Platform } from "../entities/platform.js";
+import { Platform } from "./platform.js";
 import { Size, Physics, Platforms } from "../variables.js";
+import { getCurrentLevel } from "../levels.js";
 
 // ─────────────────────────────────────────────────────────────
 //  PlatformManager
@@ -47,7 +48,7 @@ export class PlatformManager {
   //  2. Removes platforms that have scrolled far below screen
   // ─────────────────────────────────────────────────────────
 
-  update(cameraY, difficulty, dt) {
+  update(cameraY, difficulty, dt, score) {
     // Move all platforms
     for (const p of this.platforms) {
       p.update(dt);
@@ -55,7 +56,7 @@ export class PlatformManager {
 
     // Generate platforms until we have coverage one full screen above camera
     while (this.highestY > cameraY - Size.LOGICAL_HEIGHT) {
-      this._generateNext(difficulty);
+      this._generateNext(difficulty, score);
     }
 
     // Remove platforms that have scrolled more than one screen below the camera
@@ -108,17 +109,23 @@ export class PlatformManager {
   }
 
   // Generates the next platform above the current highest one
-  _generateNext(difficulty) {
+  _generateNext(difficulty, score) {
+    // Get current level and apply its difficulty modifiers
+    const level = getCurrentLevel(score);
+    const effectiveDifficulty = difficulty * level.difficultyMultiplier;
+
     // Width shrinks with difficulty, using WIDTH_SCALE for tunable rate
     const width = Math.max(
       Platforms.WIDTH_MIN,
-      Platforms.WIDTH_MAX - difficulty * Platforms.WIDTH_SCALE,
+      Platforms.WIDTH_MAX - effectiveDifficulty * Platforms.WIDTH_SCALE,
     );
 
-    // Vertical gap grows with difficulty
+    // Vertical gap grows with difficulty and level modifier
+    const baseGap =
+      Platforms.GAP_Y_BASE + effectiveDifficulty * Platforms.GAP_Y_SCALE * 100;
     const gapY = Math.min(
-      Platforms.GAP_Y_BASE + difficulty * Platforms.GAP_Y_SCALE * 100,
-      Platforms.GAP_Y_MAX,
+      baseGap * level.gapMultiplier,
+      Platforms.GAP_Y_MAX * level.gapMultiplier,
     );
 
     const y = this.highestY - gapY;
@@ -126,14 +133,18 @@ export class PlatformManager {
     const maxX = Size.LOGICAL_WIDTH - width - Platforms.MARGIN;
     const x = Platforms.MARGIN + Math.random() * (maxX - Platforms.MARGIN);
 
-    // ── Speed scales with difficulty, capped at max ──
+    // ── Speed scales with difficulty and level modifier ──
+    const baseSpeed =
+      Platforms.SPEED_X_BASE + effectiveDifficulty * Platforms.SPEED_SCALE;
     const speed = Math.min(
-      Platforms.SPEED_X_BASE + difficulty * Platforms.SPEED_SCALE,
-      Platforms.SPEED_MAX,
+      baseSpeed * level.speedMultiplier,
+      Platforms.SPEED_MAX * level.speedMultiplier,
     );
     const speedY = Math.min(
-      Platforms.SPEED_Y_BASE + difficulty * Platforms.SPEED_SCALE * 0.6,
-      Platforms.SPEED_MAX * 0.6,
+      (Platforms.SPEED_Y_BASE +
+        effectiveDifficulty * Platforms.SPEED_SCALE * 0.6) *
+        level.speedMultiplier,
+      Platforms.SPEED_MAX * 0.6 * level.speedMultiplier,
     );
 
     // Random starting direction for each axis independently
