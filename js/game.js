@@ -147,7 +147,7 @@ export class Game {
         this.updateJump();
         this.updatePhysics(dt);
         this.updateGroundedRide();
-        this.updateWallWrap();
+        this.updateWallBounce();
         this.updatePlatformCollision();
         this.updateCamera();
         this.updateScore();
@@ -186,33 +186,61 @@ export class Game {
     this.frog.vy = -power;
     this.frog.grounded = false;
     this.frog.charge = 0;
+
+    // Apply velocity boost when jumping from moving platform
+    const platform = this.frog.currentPlatform;
+    if (platform) {
+      this.frog.vx = platform.vx * Physics.FROG_VELOCITY_BOOST;
+    }
+
     this.frog.currentPlatform = null;
 
     // Dust puff downward on jump
     this.particles.spawnJump(this.frog.x, this.frog.y + Physics.FROG_H / 2);
 
-    console.log("Jump! power=" + Math.round(power) + " t=" + t.toFixed(2));
+    console.log(
+      "Jump! power=" + Math.round(power) + " vx=" + Math.round(this.frog.vx),
+    );
   }
 
   // Gravity + velocity -> position
   updatePhysics(dt) {
     if (!this.frog.grounded) {
       this.frog.vy += Physics.GRAVITY * dt;
-      // Light air drag on vx — bleeds off the platform's inherited velocity
-      // 3.0 = friction coefficient, feels natural without killing momentum instantly
-      this.frog.vx *= Math.max(0, 1 - 3.0 * dt);
+      // Air drag bleeds off horizontal velocity while airborne
+      this.frog.vx *= Math.max(0, 1 - Physics.AIR_DRAG * dt);
     }
     this.frog.x += this.frog.vx * dt;
     this.frog.y += this.frog.vy * dt;
   }
 
-  // Wall wrap — only when airborne
-  // When grounded the platform's own wall bounce handles position
-  updateWallWrap() {
-    if (this.frog.grounded) return;
+  // Wall bounce — frog bounces off screen edges instead of wrapping
+  updateWallBounce() {
     const hw = Physics.FROG_W / 2;
-    if (this.frog.x < -hw) this.frog.x = this.width + hw;
-    if (this.frog.x > this.width + hw) this.frog.x = -hw;
+    const leftEdge = 0;
+    const rightEdge = this.width;
+
+    if (this.frog.grounded) {
+      // Grounded: Hard clamp to screen bounds (can't walk off edge)
+      if (this.frog.x - hw < leftEdge) {
+        this.frog.x = leftEdge + hw;
+        this.frog.vx = 0;
+      }
+      if (this.frog.x + hw > rightEdge) {
+        this.frog.x = rightEdge - hw;
+        this.frog.vx = 0;
+      }
+    } else {
+      // Airborne: Bounce with velocity reversal and damping
+      if (this.frog.x - hw < leftEdge) {
+        this.frog.x = leftEdge + hw;
+        this.frog.vx = Math.abs(this.frog.vx) * Physics.WALL_BOUNCE_DAMPING;
+      }
+      if (this.frog.x + hw > rightEdge) {
+        this.frog.x = rightEdge - hw;
+        this.frog.vx = -Math.abs(this.frog.vx) * Physics.WALL_BOUNCE_DAMPING;
+      }
+    }
   }
 
   // Check if frog landed on a platform this frame
@@ -227,7 +255,7 @@ export class Game {
     this.frog.vy = 0;
     this.frog.charge = 0;
     this.frog.y = platform.top - Physics.FROG_H / 2;
-    this.frog.vx = platform.vx;
+    this.frog.vx = platform.vx; // Match platform speed (boost happens on jump)
 
     if (wasAirborne) {
       // Splash burst + frog squash animation
@@ -237,8 +265,6 @@ export class Game {
   }
 
   // Every frame the frog is grounded, keep it locked to its platform
-  // This fixes the jitter caused by platform.vy moving the surface
-  // out from under the frog between frames
   updateGroundedRide() {
     if (!this.frog.grounded) return;
     const p = this.frog.currentPlatform;
@@ -250,7 +276,7 @@ export class Game {
     const stillOn = frogRight > p.x + 4 && frogLeft < p.right - 4;
 
     if (stillOn) {
-      // Ride the platform — snap y and match both velocities every frame
+      // Ride the platform — snap y and match velocity every frame
       this.frog.y = p.top - Physics.FROG_H / 2;
       this.frog.vx = p.vx;
       this.frog.vy = 0;
@@ -263,8 +289,6 @@ export class Game {
 
   // Camera follows frog upward, never scrolls back down
   updateCamera() {
-    // Keep frog in the lower third of the screen while climbing
-    // target: frog sits at 65% down the screen
     const targetCameraY = this.frog.y - this.height * 0.65;
 
     // Only move camera up (targetCameraY is more negative = higher up)
@@ -279,8 +303,6 @@ export class Game {
 
     if (height > this.score) {
       this.score = height;
-
-      // Difficulty increments every 5 score points (was 3)
       this.difficulty = Math.floor(this.score / 5);
 
       if (this.score > this.bestScore) {
@@ -357,14 +379,12 @@ export class Game {
   }
 
   // ─────────────────────────────────────────────────────────
-  //  DEBUG STATS — read by the HTML stats panel in index.html
-  //  Returns a plain object so the panel never touches internals
+  //  DEBUG STATS
   // ─────────────────────────────────────────────────────────
 
   getDebugStats() {
     const p = this.frog.currentPlatform;
     return {
-      // Game
       state: this.currentState,
       fps: this.fps,
       targetFps: FPS.TARGET,
@@ -374,7 +394,6 @@ export class Game {
       cameraY: this.cameraY,
       platformCount: this.platformManager.platforms.length,
 
-      // Frog
       frog: {
         x: this.frog.x,
         y: this.frog.y,
@@ -384,7 +403,6 @@ export class Game {
         charge: this.frog.charge,
       },
 
-      // Current platform (null when airborne)
       platform: p
         ? {
             x: p.x,
