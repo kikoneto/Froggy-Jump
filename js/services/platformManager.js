@@ -54,10 +54,16 @@ export class PlatformManager {
       p.update(dt);
     }
 
+    // Store platform count before generating
+    const oldCount = this.platforms.length;
+
     // Generate platforms until we have coverage one full screen above camera
     while (this.highestY > cameraY - Size.LOGICAL_HEIGHT) {
       this._generateNext(difficulty, score);
     }
+
+    // Return newly created platforms (if any)
+    return this.platforms.slice(oldCount);
 
     // Remove platforms that have scrolled more than one screen below the camera
     const cutoff = cameraY + Size.LOGICAL_HEIGHT * 2;
@@ -75,7 +81,7 @@ export class PlatformManager {
   //  - Frog must overlap the platform horizontally
   // ─────────────────────────────────────────────────────────
 
-  collide(frog, platformWidthBonus = 0) {
+  collide(frog) {
     // Only check when falling
     if (frog.vy <= 0) return null;
 
@@ -84,12 +90,8 @@ export class PlatformManager {
     const frogBottom = frog.y + Physics.FROG_H / 2;
 
     for (const p of this.platforms) {
-      // Magnet power-up: Treat platforms as wider for collision
-      const effectiveLeft = p.x - platformWidthBonus / 2;
-      const effectiveRight = p.right + platformWidthBonus / 2;
-
-      const horizontalOverlap =
-        frogRight > effectiveLeft + 4 && frogLeft < effectiveRight - 4;
+      // Platforms are their actual size (including Magnet bonus if active)
+      const horizontalOverlap = frogRight > p.x + 4 && frogLeft < p.right - 4;
       // +/- 4px inset prevents landing on the very edge pixel
       const crossedTop =
         frogBottom >= p.top && frogBottom <= p.top + p.height + frog.vy * 0.017;
