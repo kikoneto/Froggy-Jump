@@ -19,11 +19,11 @@
 
 export const POWERUP_REGISTRY = [
   {
-    id: 'double_jump',
-    name: 'Double Jump',
-    description: 'Jump twice in air',
-    icon: '↟',
-    color: '#44aaff',
+    id: "double_jump",
+    name: "Double Jump",
+    description: "Jump twice in air",
+    icon: "↟",
+    color: "#44aaff",
     duration: 15, // seconds
     apply: (game) => {
       game.powerupState.doubleJumpEnabled = true;
@@ -36,26 +36,41 @@ export const POWERUP_REGISTRY = [
   },
 
   {
-    id: 'shield',
-    name: 'Shield',
-    description: 'Survive one fall',
-    icon: '◉',
-    color: '#ffaa44',
-    duration: null, // One-time use
+    id: "shield",
+    name: "Shield",
+    description: "Survive one fall",
+    icon: "◉",
+    color: "#ffaa44",
+    duration: null, // Uses counter instead of timer
     apply: (game) => {
+      // Increment shield counter (allows stacking)
+      if (!game.powerupState.shieldCount) {
+        game.powerupState.shieldCount = 0;
+      }
+      game.powerupState.shieldCount += 1;
       game.powerupState.shieldActive = true;
+
+      // Add to timers with infinite duration for display purposes
+      game.powerupState.timers["shield"] = Infinity;
+
+      console.log(
+        `Shield obtained! Total shields: ${game.powerupState.shieldCount}`,
+      );
     },
     remove: (game) => {
-      // Shield consumed on death, not time-based
+      // Called when shield counter reaches 0
+      game.powerupState.shieldActive = false;
+      game.powerupState.shieldCount = 0;
+      delete game.powerupState.timers["shield"];
     },
   },
 
   {
-    id: 'slow_motion',
-    name: 'Slow Motion',
-    description: 'Time moves slower',
-    icon: '◷',
-    color: '#aa44ff',
+    id: "slow_motion",
+    name: "Slow Motion",
+    description: "Time moves slower",
+    icon: "◷",
+    color: "#aa44ff",
     duration: 10,
     apply: (game) => {
       game.powerupState.slowMotionActive = true;
@@ -68,15 +83,15 @@ export const POWERUP_REGISTRY = [
   },
 
   {
-    id: 'mega_jump',
-    name: 'Mega Jump',
-    description: '+50% jump power',
-    icon: '⇈',
-    color: '#ff4444',
+    id: "mega_jump",
+    name: "Mega Jump",
+    description: "+30% jump power",
+    icon: "⇈",
+    color: "#ff4444",
     duration: 12,
     apply: (game) => {
       game.powerupState.megaJumpActive = true;
-      game.powerupState.jumpMultiplier = 1.5;
+      game.powerupState.jumpMultiplier = 1.3;
     },
     remove: (game) => {
       game.powerupState.megaJumpActive = false;
@@ -85,49 +100,42 @@ export const POWERUP_REGISTRY = [
   },
 
   {
-    id: 'magnet',
-    name: 'Magnet',
-    description: 'Wider platforms',
-    icon: '⬌',
-    color: '#44ff88',
+    id: "magnet",
+    name: "Magnet",
+    description: "Wider platforms",
+    icon: "⬌",
+    color: "#44ff88",
     duration: 15,
     apply: (game) => {
       game.powerupState.magnetActive = true;
-      game.powerupState.platformWidthBonus = 30; // +30px
-    },
-    remove: (game) => {
-      game.powerupState.magnetActive = false;
-      game.powerupState.platformWidthBonus = 0;
-    },
-  },
+      game.powerupState.platformWidthBonus = 45;
 
-  // Ghost Mode removed - too confusing/dangerous for players
-
-  {
-    id: 'score_boost',
-    name: 'Score Boost',
-    description: 'Instant +50 points',
-    icon: '★',
-    color: '#ffdd44',
-    duration: null, // Instant
-    apply: (game) => {
-      game.score += 50;
-      if (game.score > game.bestScore) {
-        game.bestScore = game.score;
-        localStorage.setItem('froggyJumpBest', game.bestScore);
+      // Actually increase all platform widths and center them
+      for (const p of game.platformManager.platforms) {
+        p.width += game.powerupState.platformWidthBonus;
+        p.x -= game.powerupState.platformWidthBonus / 2; // Center the expansion
       }
     },
     remove: (game) => {
-      // Instant effect, nothing to remove
+      const bonus = game.powerupState.platformWidthBonus; // Store before clearing
+
+      game.powerupState.magnetActive = false;
+      game.powerupState.platformWidthBonus = 0;
+
+      // Actually decrease all platform widths and recenter them
+      for (const p of game.platformManager.platforms) {
+        p.width -= bonus;
+        p.x += bonus / 2; // Recenter
+      }
     },
   },
 
   {
-    id: 'spring',
-    name: 'Spring Shoes',
-    description: 'Auto max charge',
-    icon: '⌃',
-    color: '#88ff44',
+    id: "spring",
+    name: "Spring Shoes",
+    description: "Auto max charge",
+    icon: "⌃",
+    color: "#88ff44",
     duration: 10,
     apply: (game) => {
       game.powerupState.springActive = true;
@@ -161,8 +169,8 @@ export const POWERUP_REGISTRY = [
  */
 export function getRandomPowerups(excludeIds = []) {
   // Filter out excluded power-ups
-  const available = POWERUP_REGISTRY.filter(p => !excludeIds.includes(p.id));
-  
+  const available = POWERUP_REGISTRY.filter((p) => !excludeIds.includes(p.id));
+
   if (available.length <= 3) {
     return available; // Return all if 3 or fewer
   }
@@ -173,7 +181,7 @@ export function getRandomPowerups(excludeIds = []) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  
+
   return shuffled.slice(0, 3);
 }
 
@@ -183,7 +191,7 @@ export function getRandomPowerups(excludeIds = []) {
  * @returns {Object|null} Power-up object or null
  */
 export function getPowerupById(id) {
-  return POWERUP_REGISTRY.find(p => p.id === id) || null;
+  return POWERUP_REGISTRY.find((p) => p.id === id) || null;
 }
 
 /**
@@ -193,13 +201,13 @@ export function getPowerupById(id) {
  */
 export function getActivePowerupIds(powerupState) {
   const active = [];
-  
+
   // Check each power-up's timer
   for (const [key, value] of Object.entries(powerupState.timers || {})) {
     if (value > 0) {
       active.push(key);
     }
   }
-  
+
   return active;
 }

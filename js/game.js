@@ -8,7 +8,11 @@ import { PlatformRenderer } from "./renderer/platformRenderer.js";
 import { ParticleSystem } from "./renderer/particleSystem.js";
 import { UIRenderer } from "./renderer/uiRenderer.js";
 import { PowerupRenderer } from "./renderer/powerupRenderer.js";
-import { getRandomPowerups, getPowerupById, getActivePowerupIds } from "./powerups.js";
+import {
+  getRandomPowerups,
+  getPowerupById,
+  getActivePowerupIds,
+} from "./powerups.js";
 
 export class Game {
   // ─────────────────────────────────────────────────────────
@@ -51,10 +55,11 @@ export class Game {
 
     // ── Power-up system ──
     this.powerupState = {
-      timers: {},                    // Active power-up timers
+      timers: {}, // Active power-up timers
       doubleJumpEnabled: false,
       doubleJumpAvailable: false,
       shieldActive: false,
+      shieldCount: 0,
       slowMotionActive: false,
       timeScale: 1.0,
       jumpMultiplier: 1.0,
@@ -64,14 +69,14 @@ export class Game {
       magnetActive: false,
       springActive: false,
     };
-    
+
     this.powerupSelectionActive = false;
     this.powerupChoices = [];
     this.powerupHoveredIndex = -1;
-    this.scoreUntilPowerup = 50;    // Offer power-up every 200 points
-    this.POWERUP_SCORE_INTERVAL = 50;
-    this.lastPowerupScore = 0;       // Track when last power-up was offered
-    this.powerupReady = false;       // Flag: power-up ready, waiting for landing
+    this.scoreUntilPowerup = 200; // Offer power-up every 200 points
+    this.POWERUP_SCORE_INTERVAL = 200;
+    this.lastPowerupScore = 0; // Track when last power-up was offered
+    this.powerupReady = false; // Flag: power-up ready, waiting for landing
 
     // ── State ──
     this.currentState = State.IDLE;
@@ -115,7 +120,6 @@ export class Game {
   // ─────────────────────────────────────────────────────────
 
   setState(newState) {
-    console.log("State: " + this.currentState + " -> " + newState);
     this.currentState = newState;
   }
 
@@ -134,12 +138,13 @@ export class Game {
 
     this.input.held = false;
     this.input.released = false;
-    
+
     // Reset power-ups
     this.powerupState.timers = {};
     this.powerupState.doubleJumpEnabled = false;
     this.powerupState.doubleJumpAvailable = false;
     this.powerupState.shieldActive = false;
+    this.powerupState.shieldCount = 0;
     this.powerupState.slowMotionActive = false;
     this.powerupState.timeScale = 1.0;
     this.powerupState.jumpMultiplier = 1.0;
@@ -148,7 +153,7 @@ export class Game {
     this.powerupState.megaJumpActive = false;
     this.powerupState.magnetActive = false;
     this.powerupState.springActive = false;
-    
+
     this.powerupSelectionActive = false;
     this.powerupChoices = [];
     this.scoreUntilPowerup = this.POWERUP_SCORE_INTERVAL;
@@ -189,7 +194,7 @@ export class Game {
   update(dt) {
     // Apply slow motion time scale
     const effectiveDt = dt * this.powerupState.timeScale;
-    
+
     switch (this.currentState) {
       case State.IDLE:
         break;
@@ -200,7 +205,7 @@ export class Game {
           // Game is paused during selection, don't update physics
           return;
         }
-        
+
         this.updatePowerupTimers(effectiveDt);
         this.updateCharge(effectiveDt);
         this.updateJump();
@@ -210,12 +215,25 @@ export class Game {
         this.updatePlatformCollision();
         this.updateCamera();
         this.updateScore();
-        this.platformManager.update(
+        const newPlatforms = this.platformManager.update(
           this.cameraY,
           this.difficulty,
           effectiveDt,
           this.score,
         );
+
+        // Apply Magnet bonus to newly spawned platforms
+        if (
+          this.powerupState.magnetActive &&
+          newPlatforms &&
+          newPlatforms.length > 0
+        ) {
+          for (const p of newPlatforms) {
+            p.width += this.powerupState.platformWidthBonus;
+            p.x -= this.powerupState.platformWidthBonus / 2;
+          }
+        }
+
         this.particles.update(effectiveDt);
         this.updateDeathCheck();
         break;
@@ -232,7 +250,7 @@ export class Game {
       this.frog.charge = Physics.JUMP_POWER_MAX;
       return;
     }
-    
+
     if (this.input.held && this.frog.grounded) {
       this.frog.charge = Math.min(
         this.frog.charge + Physics.CHARGE_RATE * dt,
@@ -248,23 +266,25 @@ export class Game {
 
     // Double Jump: Allow jump in air if enabled and available
     if (!this.frog.grounded) {
-      if (this.powerupState.doubleJumpEnabled && this.powerupState.doubleJumpAvailable) {
+      if (
+        this.powerupState.doubleJumpEnabled &&
+        this.powerupState.doubleJumpAvailable
+      ) {
         const t = this.frog.charge / Physics.JUMP_POWER_MAX;
         let power =
           Physics.JUMP_POWER_MIN +
           t * (Physics.JUMP_POWER_MAX - Physics.JUMP_POWER_MIN);
-        
+
         // Apply Mega Jump multiplier
         if (this.powerupState.megaJumpActive) {
           power *= this.powerupState.jumpMultiplier;
         }
-        
+
         this.frog.vy = -power;
         this.frog.charge = 0;
         this.powerupState.doubleJumpAvailable = false; // Consumed
-        
+
         this.particles.spawnJump(this.frog.x, this.frog.y + Physics.FROG_H / 2);
-        console.log("Double Jump! power=" + Math.round(power));
         return;
       }
       return; // Can't jump in air
@@ -275,7 +295,7 @@ export class Game {
     let power =
       Physics.JUMP_POWER_MIN +
       t * (Physics.JUMP_POWER_MAX - Physics.JUMP_POWER_MIN);
-    
+
     // Apply Mega Jump multiplier
     if (this.powerupState.megaJumpActive) {
       power *= this.powerupState.jumpMultiplier;
@@ -295,10 +315,6 @@ export class Game {
 
     // Dust puff downward on jump
     this.particles.spawnJump(this.frog.x, this.frog.y + Physics.FROG_H / 2);
-
-    console.log(
-      "Jump! power=" + Math.round(power) + " vx=" + Math.round(this.frog.vx),
-    );
   }
 
   // Gravity + velocity -> position
@@ -347,11 +363,8 @@ export class Game {
     if (this.powerupState.ghostActive) {
       return;
     }
-    
-    const platform = this.platformManager.collide(
-      this.frog,
-      this.powerupState.platformWidthBonus
-    );
+
+    const platform = this.platformManager.collide(this.frog);
     if (!platform) return;
 
     const wasAirborne = !this.frog.grounded;
@@ -369,12 +382,12 @@ export class Game {
       // Splash burst + frog squash animation
       this.particles.spawnLand(this.frog.x, platform.top);
       this.frogRenderer.triggerLanding();
-      
+
       // Reset double jump on landing
       if (this.powerupState.doubleJumpEnabled) {
         this.powerupState.doubleJumpAvailable = true;
       }
-      
+
       // Show power-up selection if ready AND not already showing
       if (this.powerupReady && !this.powerupSelectionActive) {
         this.powerupReady = false;
@@ -418,7 +431,10 @@ export class Game {
 
   // Score = how many units high the frog has climbed
   updateScore() {
-    const height = Math.floor((Physics.FLOOR_Y - this.frog.y) / 10);
+    // Start measuring from frog's initial Y position (on first platform)
+    // Initial Y is FLOOR_Y - FROG_H/2, so subtract that to start score at 0
+    const initialY = Physics.FLOOR_Y - Physics.FROG_H / 2;
+    const height = Math.floor((initialY - this.frog.y) / 10);
 
     if (height > this.score) {
       this.score = height;
@@ -427,14 +443,15 @@ export class Game {
       if (this.score > this.bestScore) {
         this.bestScore = this.score;
       }
-      
+
       // Power-up trigger: Set flag when reaching threshold, show on next landing
       // Only set flag if not already ready and not currently showing selection
-      if (this.score >= this.scoreUntilPowerup && 
-          !this.powerupReady && 
-          !this.powerupSelectionActive) {
+      if (
+        this.score >= this.scoreUntilPowerup &&
+        !this.powerupReady &&
+        !this.powerupSelectionActive
+      ) {
         this.powerupReady = true;
-        console.log(`Power-up ready! Will show on next landing (score: ${this.score})`);
       }
     }
   }
@@ -443,26 +460,35 @@ export class Game {
   updateDeathCheck() {
     if (this.frog.y - Physics.FROG_H / 2 > this.cameraY + this.height) {
       // Shield: Survive one fall
-      if (this.powerupState.shieldActive) {
-        console.log("Shield absorbed death!");
-        this.powerupState.shieldActive = false;
-        
+      if (this.powerupState.shieldActive && this.powerupState.shieldCount > 0) {
+        // Decrement shield counter
+        this.powerupState.shieldCount -= 1;
+
+        // If no shields left, deactivate
+        if (this.powerupState.shieldCount <= 0) {
+          this.powerupState.shieldActive = false;
+          delete this.powerupState.timers["shield"];
+        }
+
         // Find a safe platform to spawn on (visible on screen)
-        const visiblePlatforms = this.platformManager.platforms.filter(p => {
+        const visiblePlatforms = this.platformManager.platforms.filter((p) => {
           const screenY = p.y - this.cameraY;
           return screenY > 100 && screenY < this.height - 100; // Platforms in middle of screen
         });
-        
+
         if (visiblePlatforms.length > 0) {
           // Spawn on a random visible platform
-          const platform = visiblePlatforms[Math.floor(Math.random() * visiblePlatforms.length)];
+          const platform =
+            visiblePlatforms[
+              Math.floor(Math.random() * visiblePlatforms.length)
+            ];
           this.frog.y = platform.top - Physics.FROG_H / 2;
           this.frog.x = platform.x + platform.width / 2; // Center of platform
           this.frog.vy = 0;
           this.frog.vx = platform.vx; // Match platform speed
           this.frog.grounded = true;
           this.frog.currentPlatform = platform;
-          
+
           // Visual feedback
           this.particles.spawnLand(this.frog.x, platform.top);
         } else {
@@ -473,15 +499,12 @@ export class Game {
           this.frog.vx = 0;
           this.frog.grounded = false;
         }
-        
-        // Remove shield timer
-        delete this.powerupState.timers['shield'];
-        
+
         // Visual feedback
         this.particles.spawnLand(this.frog.x, this.frog.y);
         return;
       }
-      
+
       this.setState(State.DEAD);
     }
   }
@@ -489,80 +512,78 @@ export class Game {
   // ─────────────────────────────────────────────────────────
   //  POWER-UP SYSTEM
   // ─────────────────────────────────────────────────────────
-  
+
   updatePowerupTimers(dt) {
     // Update all active power-up timers
     for (const [id, timeLeft] of Object.entries(this.powerupState.timers)) {
+      // Skip shields (use Infinity, counter-based)
+      if (timeLeft === Infinity) continue;
+
+      // Skip already expired
       if (timeLeft <= 0) continue;
-      
+
       this.powerupState.timers[id] -= dt;
-      
+
       // Timer expired, remove power-up
       if (this.powerupState.timers[id] <= 0) {
         const powerup = getPowerupById(id);
         if (powerup && powerup.remove) {
           powerup.remove(this);
-          console.log(`Power-up expired: ${powerup.name}`);
         }
         delete this.powerupState.timers[id];
       }
     }
   }
-  
+
   showPowerupSelection() {
     // Get currently active power-up IDs to exclude
     const activeIds = Object.keys(this.powerupState.timers);
-    
+
     // Get 3 random power-ups
     this.powerupChoices = getRandomPowerups(activeIds);
-    
+
     if (this.powerupChoices.length === 0) {
       // No power-ups available (all active)
       this.scoreUntilPowerup = this.score + this.POWERUP_SCORE_INTERVAL;
-      this.powerupReady = false;  // Clear the flag
+      this.powerupReady = false; // Clear the flag
       return;
     }
-    
+
     this.powerupSelectionActive = true;
     this.powerupHoveredIndex = -1;
-    
+
     // Clear all input state to prevent jump on resume
     this.input.held = false;
     this.input.released = false;
     this.frog.charge = 0;
-    
-    console.log("Power-up selection shown at score:", this.score, "- Choices:", this.powerupChoices.map(p => p.name));
   }
-  
+
   selectPowerup(index) {
     if (index < 0 || index >= this.powerupChoices.length) return;
-    
+
     const powerup = this.powerupChoices[index];
-    
+
     // Apply power-up
     if (powerup.apply) {
       powerup.apply(this);
-      console.log(`Power-up selected: ${powerup.name}`);
     }
-    
+
     // Start timer if duration-based
     if (powerup.duration !== null) {
       this.powerupState.timers[powerup.id] = powerup.duration;
     }
-    
+
     // Close selection and set next threshold
     this.powerupSelectionActive = false;
     this.powerupChoices = [];
     this.lastPowerupScore = this.score;
     this.scoreUntilPowerup = this.score + this.POWERUP_SCORE_INTERVAL;
-    
+
     // CRITICAL: Clear input state and ignore next release
     this.input.held = false;
     this.input.released = false;
     this.frog.charge = 0;
-    this.ignoreNextRelease = true;  // Ignore the pointerup from clicking power-up
-    
-    console.log(`Next power-up at score: ${this.scoreUntilPowerup}`);
+    this.ignoreNextRelease = true; // Ignore the pointerup from clicking power-up
   }
 
   // ─────────────────────────────────────────────────────────
@@ -599,7 +620,7 @@ export class Game {
   drawGame() {
     const { ctx, frog, cameraY } = this;
 
-    // Platforms - pass score for level-based textures
+    // Platforms
     for (const p of this.platformManager.platforms) {
       const screenY = p.y - cameraY;
       if (screenY > this.height + 20 || screenY < -20) continue;
@@ -618,23 +639,26 @@ export class Game {
       this.ui.drawLevelProgress(ctx, this.score);
       this.ui.drawScore(ctx, this.score, this.bestScore, level.name);
       this.ui.drawChargeBar(ctx, frog, cameraY, Physics.JUMP_POWER_MAX);
-      
+
       // Active power-ups indicator (top-left)
       const activePowerups = [];
       for (const [id, timeLeft] of Object.entries(this.powerupState.timers)) {
         const powerup = getPowerupById(id);
         if (powerup) {
-          activePowerups.push({ powerup, timeLeft });
+          // Add shieldCount if this is a shield power-up
+          const extraData =
+            id === "shield" ? { count: this.powerupState.shieldCount } : {};
+          activePowerups.push({ powerup, timeLeft, ...extraData });
         }
       }
       this.powerupRenderer.drawActivePowerups(ctx, activePowerups);
-      
+
       // Power-up selection overlay (pauses game)
       if (this.powerupSelectionActive) {
         this.powerupRenderer.drawSelection(
           ctx,
           this.powerupChoices,
-          this.powerupHoveredIndex
+          this.powerupHoveredIndex,
         );
       }
     }
@@ -704,16 +728,16 @@ export class Game {
 
     this.canvas.addEventListener("pointerdown", (e) => {
       e.preventDefault();
-      
+
       // Handle power-up selection clicks
       if (this.powerupSelectionActive) {
         this.handlePowerupClick(e);
         return;
       }
-      
+
       this.onInputStart();
     });
-    
+
     this.canvas.addEventListener("pointermove", (e) => {
       // Handle power-up hover
       if (this.powerupSelectionActive) {
@@ -722,12 +746,12 @@ export class Game {
     });
     this.canvas.addEventListener("pointerup", (e) => {
       e.preventDefault();
-      
+
       // Block input during power-up selection
       if (this.powerupSelectionActive) {
         return;
       }
-      
+
       this.onInputEnd();
     });
 
@@ -747,7 +771,7 @@ export class Game {
     if (this.powerupSelectionActive) {
       return;
     }
-    
+
     if (this.currentState === State.IDLE) {
       this.setState(State.PLAYING);
       this.init();
@@ -770,7 +794,7 @@ export class Game {
     if (this.powerupSelectionActive) {
       return;
     }
-    
+
     if (this.currentState !== State.PLAYING) return;
 
     // Ignore the release if it's from the press that started the game
@@ -786,18 +810,18 @@ export class Game {
     this.input.held = false;
     this.input.released = true;
   }
-  
+
   // ─────────────────────────────────────────────────────────
   //  POWER-UP INTERACTION
   // ─────────────────────────────────────────────────────────
-  
+
   handlePowerupClick(e) {
     const rect = this.canvas.getBoundingClientRect();
     const scaleX = this.width / rect.width;
     const scaleY = this.height / rect.height;
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
-    
+
     // Calculate card positions (MUST match powerupRenderer)
     const cardWidth = 110;
     const cardHeight = 130;
@@ -805,26 +829,30 @@ export class Game {
     const totalWidth = cardWidth * 3 + spacing * 2;
     const startX = (this.width - totalWidth) / 2;
     const startY = 110;
-    
+
     for (let i = 0; i < this.powerupChoices.length; i++) {
       const cardX = startX + i * (cardWidth + spacing);
       const cardY = startY;
-      
-      if (x >= cardX && x <= cardX + cardWidth &&
-          y >= cardY && y <= cardY + cardHeight) {
+
+      if (
+        x >= cardX &&
+        x <= cardX + cardWidth &&
+        y >= cardY &&
+        y <= cardY + cardHeight
+      ) {
         this.selectPowerup(i);
         return;
       }
     }
   }
-  
+
   handlePowerupHover(e) {
     const rect = this.canvas.getBoundingClientRect();
     const scaleX = this.width / rect.width;
     const scaleY = this.height / rect.height;
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
-    
+
     // Calculate card positions (MUST match powerupRenderer)
     const cardWidth = 110;
     const cardHeight = 130;
@@ -832,19 +860,23 @@ export class Game {
     const totalWidth = cardWidth * 3 + spacing * 2;
     const startX = (this.width - totalWidth) / 2;
     const startY = 110;
-    
+
     let hoveredIndex = -1;
     for (let i = 0; i < this.powerupChoices.length; i++) {
       const cardX = startX + i * (cardWidth + spacing);
       const cardY = startY;
-      
-      if (x >= cardX && x <= cardX + cardWidth &&
-          y >= cardY && y <= cardY + cardHeight) {
+
+      if (
+        x >= cardX &&
+        x <= cardX + cardWidth &&
+        y >= cardY &&
+        y <= cardY + cardHeight
+      ) {
         hoveredIndex = i;
         break;
       }
     }
-    
+
     this.powerupHoveredIndex = hoveredIndex;
   }
 }
