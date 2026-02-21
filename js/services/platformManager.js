@@ -75,7 +75,7 @@ export class PlatformManager {
   //  - Frog must overlap the platform horizontally
   // ─────────────────────────────────────────────────────────
 
-  collide(frog) {
+  collide(frog, platformWidthBonus = 0) {
     // Only check when falling
     if (frog.vy <= 0) return null;
 
@@ -84,7 +84,12 @@ export class PlatformManager {
     const frogBottom = frog.y + Physics.FROG_H / 2;
 
     for (const p of this.platforms) {
-      const horizontalOverlap = frogRight > p.x + 4 && frogLeft < p.right - 4;
+      // Magnet power-up: Treat platforms as wider for collision
+      const effectiveLeft = p.x - platformWidthBonus / 2;
+      const effectiveRight = p.right + platformWidthBonus / 2;
+
+      const horizontalOverlap =
+        frogRight > effectiveLeft + 4 && frogLeft < effectiveRight - 4;
       // +/- 4px inset prevents landing on the very edge pixel
       const crossedTop =
         frogBottom >= p.top && frogBottom <= p.top + p.height + frog.vy * 0.017;
