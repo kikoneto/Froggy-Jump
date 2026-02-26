@@ -1,0 +1,265 @@
+{
+"skeleton": { "hash": "gpHiQ6Wg/1E", "spine": "4.2.43", "fps": 60, "images": "./Images/", "audio": "./audio" },
+"bones": [
+	{ "name": "root" },
+	{ "name": "player", "parent": "root" }
+],
+"slots": [
+	{ "name": "playerIdle", "bone": "player" },
+	{ "name": "playerPrep", "bone": "root" },
+	{ "name": "playerCharge", "bone": "root" },
+	{ "name": "playerStun", "bone": "root" },
+	{ "name": "playerStunLoop", "bone": "root" },
+	{ "name": "playerJump", "bone": "root" },
+	{ "name": "playerLand", "bone": "root" },
+	{ "name": "playerStunToIdle", "bone": "root" }
+],
+"skins": [
+	{
+		"name": "default",
+		"attachments": {
+			"playerCharge": {
+				"playerCharge00": { "y": 32, "width": 64, "height": 64 }
+			},
+			"playerIdle": {
+				"playerIdle": {
+					"y": 32,
+					"width": 64,
+					"height": 64,
+					"sequence": { "count": 3, "start": 0, "digits": 2 }
+				}
+			},
+			"playerJump": {
+				"playerJump": {
+					"y": 32,
+					"width": 64,
+					"height": 64,
+					"sequence": { "count": 2, "start": 0, "digits": 2 }
+				}
+			},
+			"playerLand": {
+				"playerLand00": { "y": 32, "width": 64, "height": 64 }
+			},
+			"playerPrep": {
+				"playerPrep": {
+					"y": 32,
+					"width": 64,
+					"height": 64,
+					"sequence": { "count": 4, "start": 0, "digits": 2 }
+				}
+			},
+			"playerStun": {
+				"playerStun00": { "y": 32, "width": 64, "height": 64 }
+			},
+			"playerStunLoop": {
+				"playerStunLoop": {
+					"y": 32,
+					"width": 64,
+					"height": 64,
+					"sequence": { "count": 5, "start": 0, "digits": 2 }
+				}
+			},
+			"playerStunToIdle": {
+				"playerStunToIdle": {
+					"y": 32,
+					"width": 64,
+					"height": 64,
+					"sequence": { "count": 2, "start": 0, "digits": 2 }
+				}
+			}
+		}
+	}
+],
+"animations": {
+	"charge": {
+		"slots": {
+			"playerCharge": {
+				"attachment": [
+					{ "name": "playerCharge00" },
+					{ "time": 0.1667 },
+					{ "time": 0.3333, "name": "playerCharge00" },
+					{ "time": 0.4667 },
+					{ "time": 0.6, "name": "playerCharge00" },
+					{ "time": 0.7 },
+					{ "time": 0.8, "name": "playerCharge00" },
+					{ "time": 0.8667 },
+					{ "time": 0.9333, "name": "playerCharge00" },
+					{ "time": 0.9667 },
+					{ "time": 1, "name": "playerCharge00" },
+					{ "time": 1.0167, "name": "playerCharge00" }
+				]
+			},
+			"playerPrep": {
+				"attachment": [
+					{ "name": "playerPrep" }
+				]
+			}
+		},
+		"attachments": {
+			"default": {
+				"playerPrep": {
+					"playerPrep": {
+						"sequence": [
+							{ "index": 3, "delay": 0.0833 }
+						]
+					}
+				}
+			}
+		}
+	},
+	"idle": {
+		"slots": {
+			"playerIdle": {
+				"attachment": [
+					{ "name": "playerIdle" }
+				]
+			}
+		},
+		"attachments": {
+			"default": {
+				"playerIdle": {
+					"playerIdle": {
+						"sequence": [
+							{ "mode": "pingpong", "delay": 0.1667 },
+							{ "time": 0.65, "index": 1 }
+						]
+					}
+				}
+			}
+		}
+	},
+	"jumpLoop": {
+		"slots": {
+			"playerJump": {
+				"attachment": [
+					{ "name": "playerJump" }
+				]
+			}
+		},
+		"attachments": {
+			"default": {
+				"playerJump": {
+					"playerJump": {
+						"sequence": [
+							{ "mode": "loop", "delay": 0.0667 },
+							{ "time": 0.1167, "index": 1 }
+						]
+					}
+				}
+			}
+		}
+	},
+	"land": {
+		"slots": {
+			"playerIdle": {
+				"attachment": [
+					{ "time": 0.05, "name": "playerIdle" },
+					{ "time": 0.1 }
+				]
+			},
+			"playerLand": {
+				"attachment": [
+					{ "name": "playerLand00" },
+					{ "time": 0.05 }
+				]
+			},
+			"playerPrep": {
+				"attachment": [
+					{ "time": 0.1, "name": "playerPrep" }
+				]
+			}
+		},
+		"attachments": {
+			"default": {
+				"playerPrep": {
+					"playerPrep": {
+						"sequence": [
+							{ "time": 0.1, "mode": "loop", "delay": 0.0833 },
+							{ "time": 0.15, "mode": "loopReverse", "index": 2 },
+							{ "time": 0.2, "mode": "loopReverse", "index": 3 },
+							{ "time": 0.2333 }
+						]
+					}
+				}
+			}
+		}
+	},
+	"prep": {
+		"slots": {
+			"playerPrep": {
+				"attachment": [
+					{ "name": "playerPrep" }
+				]
+			}
+		},
+		"attachments": {
+			"default": {
+				"playerPrep": {
+					"playerPrep": {
+						"sequence": [
+							{ "mode": "once", "delay": 0.0833 },
+							{ "time": 0.3167, "index": 3 }
+						]
+					}
+				}
+			}
+		}
+	},
+	"stun": {
+		"slots": {
+			"playerStun": {
+				"attachment": [
+					{ "name": "playerStun00" },
+					{ "time": 0.0833, "name": "playerStun00" }
+				]
+			}
+		}
+	},
+	"stunLoop": {
+		"slots": {
+			"playerStunLoop": {
+				"attachment": [
+					{ "name": "playerStunLoop" }
+				]
+			}
+		},
+		"attachments": {
+			"default": {
+				"playerStunLoop": {
+					"playerStunLoop": {
+						"sequence": [
+							{ "mode": "once", "delay": 0.0833 },
+							{ "time": 0.25, "mode": "onceReverse", "index": 2 },
+							{ "time": 0.4167, "mode": "once" },
+							{ "time": 0.5, "mode": "once", "index": 3 },
+							{ "time": 0.6667, "mode": "onceReverse" },
+							{ "time": 0.8167, "index": 3 }
+						]
+					}
+				}
+			}
+		}
+	},
+	"stunToIdle": {
+		"slots": {
+			"playerStunToIdle": {
+				"attachment": [
+					{ "name": "playerStunToIdle" }
+				]
+			}
+		},
+		"attachments": {
+			"default": {
+				"playerStunToIdle": {
+					"playerStunToIdle": {
+						"sequence": [
+							{ "mode": "loop", "delay": 0.0833 },
+							{ "time": 0.3167, "index": 1 }
+						]
+					}
+				}
+			}
+		}
+	}
+}
+}
