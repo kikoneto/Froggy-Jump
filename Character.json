@@ -1,10 +1,22 @@
 {
-"skeleton": { "hash": "gpHiQ6Wg/1E", "spine": "4.2.43", "fps": 60, "images": "./Images/", "audio": "./audio" },
+"skeleton": { "hash": "55HvpcKZ4Q0", "spine": "4.2.43", "fps": 60, "images": "./Images/", "audio": "./audio" },
 "bones": [
 	{ "name": "root" },
-	{ "name": "player", "parent": "root" }
+	{ "name": "player", "parent": "root" },
+	{ "name": "platform", "parent": "root" },
+	{ "name": "bg", "parent": "platform" }
 ],
 "slots": [
+	{ "name": "bg_00", "bone": "bg", "color": "4e5542ff" },
+	{ "name": "bg_02", "bone": "bg", "color": "4e5542ff" },
+	{ "name": "bg_04", "bone": "bg", "color": "4e5542ff" },
+	{ "name": "bg_07", "bone": "bg", "color": "4e5542ff" },
+	{ "name": "bg_09", "bone": "bg", "color": "4e5542ff" },
+	{ "name": "bg_01", "bone": "bg", "color": "4e5542ff" },
+	{ "name": "bg_03", "bone": "bg", "color": "4e5542ff" },
+	{ "name": "bg_05", "bone": "bg", "color": "4e5542ff" },
+	{ "name": "bg_06", "bone": "bg", "color": "4e5542ff" },
+	{ "name": "bg_08", "bone": "bg", "color": "4e5542ff" },
 	{ "name": "playerIdle", "bone": "player" },
 	{ "name": "playerPrep", "bone": "root" },
 	{ "name": "playerCharge", "bone": "root" },
@@ -12,12 +24,65 @@
 	{ "name": "playerStunLoop", "bone": "root" },
 	{ "name": "playerJump", "bone": "root" },
 	{ "name": "playerLand", "bone": "root" },
-	{ "name": "playerStunToIdle", "bone": "root" }
+	{ "name": "playerStunToIdle", "bone": "root" },
+	{ "name": "platform", "bone": "platform" },
+	{ "name": "platform2", "bone": "platform" },
+	{ "name": "platform3", "bone": "platform" },
+	{ "name": "stunEffect", "bone": "root" },
+	{ "name": "bar", "bone": "root" },
+	{ "name": "whiteBox", "bone": "root" }
 ],
 "skins": [
 	{
 		"name": "default",
 		"attachments": {
+			"bar": {
+				"bar_": {
+					"y": 32,
+					"width": 64,
+					"height": 64,
+					"sequence": { "count": 11, "start": 0, "digits": 2 }
+				}
+			},
+			"bg_00": {
+				"bg_00": { "x": 32, "width": 64, "height": 64 }
+			},
+			"bg_01": {
+				"bg_01": { "x": -32, "width": 64, "height": 64 }
+			},
+			"bg_02": {
+				"bg_00": { "x": -32, "y": 64, "width": 64, "height": 64 }
+			},
+			"bg_03": {
+				"bg_01": { "x": 32, "y": 64, "width": 64, "height": 64 }
+			},
+			"bg_04": {
+				"bg_00": { "x": 32, "y": 128, "width": 64, "height": 64 }
+			},
+			"bg_05": {
+				"bg_01": { "x": -32, "y": 128, "width": 64, "height": 64 }
+			},
+			"bg_06": {
+				"bg_01": { "x": 32, "y": 192, "width": 64, "height": 64 }
+			},
+			"bg_07": {
+				"bg_00": { "x": -32, "y": 192, "width": 64, "height": 64 }
+			},
+			"bg_08": {
+				"bg_01": { "x": -32, "y": 256, "width": 64, "height": 64 }
+			},
+			"bg_09": {
+				"bg_00": { "x": 32, "y": 256, "width": 64, "height": 64 }
+			},
+			"platform": {
+				"platform": { "y": 20, "width": 64, "height": 64 }
+			},
+			"platform2": {
+				"platform": { "y": 148, "width": 64, "height": 64 }
+			},
+			"platform3": {
+				"platform": { "y": 276, "width": 64, "height": 64 }
+			},
 			"playerCharge": {
 				"playerCharge00": { "y": 32, "width": 64, "height": 64 }
 			},
@@ -66,6 +131,17 @@
 					"height": 64,
 					"sequence": { "count": 2, "start": 0, "digits": 2 }
 				}
+			},
+			"stunEffect": {
+				"stunEffect_": {
+					"y": 32,
+					"width": 64,
+					"height": 64,
+					"sequence": { "count": 4, "start": 0, "digits": 2 }
+				}
+			},
+			"whiteBox": {
+				"whiteBox": { "x": 4.13, "y": 86.47, "scaleX": 10, "scaleY": 10, "width": 50, "height": 50 }
 			}
 		}
 	}
@@ -73,6 +149,11 @@
 "animations": {
 	"charge": {
 		"slots": {
+			"bar": {
+				"attachment": [
+					{ "name": "bar_" }
+				]
+			},
 			"playerCharge": {
 				"attachment": [
 					{ "name": "playerCharge00" },
@@ -97,6 +178,14 @@
 		},
 		"attachments": {
 			"default": {
+				"bar": {
+					"bar_": {
+						"sequence": [
+							{ "mode": "loop", "delay": 0.0833 },
+							{ "time": 0.9167, "index": 10 }
+						]
+					}
+				},
 				"playerPrep": {
 					"playerPrep": {
 						"sequence": [
@@ -221,6 +310,11 @@
 				"attachment": [
 					{ "name": "playerStunLoop" }
 				]
+			},
+			"stunEffect": {
+				"attachment": [
+					{ "name": "stunEffect_" }
+				]
 			}
 		},
 		"attachments": {
@@ -234,6 +328,13 @@
 							{ "time": 0.5, "mode": "once", "index": 3 },
 							{ "time": 0.6667, "mode": "onceReverse" },
 							{ "time": 0.8167, "index": 3 }
+						]
+					}
+				},
+				"stunEffect": {
+					"stunEffect_": {
+						"sequence": [
+							{ "mode": "loop", "delay": 0.1 }
 						]
 					}
 				}
