@@ -8,6 +8,7 @@ import { PlatformRenderer } from "./renderer/platformRenderer.js";
 import { ParticleSystem } from "./renderer/particleSystem.js";
 import { UIRenderer } from "./renderer/uiRenderer.js";
 import { PowerupRenderer } from "./renderer/powerupRenderer.js";
+import { SpineRenderer } from "./renderer/spineRenderer.js";
 import {
   getRandomPowerups,
   getPowerupById,
@@ -37,11 +38,19 @@ export class Game {
 
     // ── Renderers ──
     this.bgRenderer = new BackgroundRenderer();
-    this.frogRenderer = new FrogRenderer();
+    this.frogRenderer = new FrogRenderer(); // spritesheet — stays as fallback
     this.platformRenderer = new PlatformRenderer();
     this.particles = new ParticleSystem();
     this.ui = new UIRenderer();
     this.powerupRenderer = new PowerupRenderer();
+    this.spineRenderer = new SpineRenderer();
+
+    // Load Spine async — game runs on spritesheet until it resolves
+    // Spine gets its own offscreen WebGL canvas — never in the DOM,
+    // so no CSS/media query can affect its size. We blit it onto gameCanvas each frame.
+    this.spineRenderer
+      .load(Size.LOGICAL_WIDTH, Size.LOGICAL_HEIGHT)
+      .catch(() => {});
 
     // ── Camera ──
     // cameraY is the world Y that maps to the top of the screen.
@@ -111,8 +120,13 @@ export class Game {
       window.innerWidth / this.width,
       window.innerHeight / this.height,
     );
-    this.canvas.style.width = this.width * scale + "px";
-    this.canvas.style.height = this.height * scale + "px";
+    const cssW = this.width * scale + "px";
+    const cssH = this.height * scale + "px";
+
+    this.canvas.style.width = cssW;
+    this.canvas.style.height = cssH;
+
+    // Spine uses an offscreen canvas — no DOM element to sync
   }
 
   // ─────────────────────────────────────────────────────────
@@ -124,7 +138,7 @@ export class Game {
   }
 
   // ─────────────────────────────────────────────────────────
-  //  INIT — reset everything for a fresh game
+  //  INIT
   // ─────────────────────────────────────────────────────────
 
   init() {
@@ -235,6 +249,8 @@ export class Game {
         }
 
         this.particles.update(effectiveDt);
+        this.spineRenderer.update(effectiveDt); // advances bone animation with game time
+
         this.updateDeathCheck();
         break;
 
@@ -381,7 +397,10 @@ export class Game {
     if (wasAirborne) {
       // Splash burst + frog squash animation
       this.particles.spawnLand(this.frog.x, platform.top);
+
+      // Trigger landing animation on whichever renderer is active
       this.frogRenderer.triggerLanding();
+      this.spineRenderer.triggerLanding();
 
       // Reset double jump on landing
       if (this.powerupState.doubleJumpEnabled) {
@@ -630,8 +649,14 @@ export class Game {
     // Particles (behind frog)
     this.particles.draw(ctx, cameraY);
 
-    // Frog
-    this.frogRenderer.draw(ctx, frog, cameraY);
+    // Frog — Spine if loaded, spritesheet as fallback
+    const drawnBySpine = this.spineRenderer.draw(ctx, frog, cameraY);
+    if (drawnBySpine) {
+      // Blit the offscreen Spine WebGL canvas onto the 2D game canvas
+      ctx.drawImage(this.spineRenderer.canvas, 0, 0);
+    } else {
+      this.frogRenderer.draw(ctx, frog, cameraY);
+    }
 
     // HUD — only show score during active play, not on idle/dead overlays
     if (this.currentState === State.PLAYING) {

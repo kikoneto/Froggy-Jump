@@ -145,7 +145,7 @@
           height: var(--vh, 100vh);
         }
 
-        canvas {
+        #gameCanvas {
           max-height: var(--vh, 100vh);
         }
       }
@@ -255,7 +255,6 @@
 
       // ── Stat elements ──
       const el = (id) => document.getElementById(id);
-
       function r(n) {
         return Math.round(n ?? 0);
       }
@@ -340,9 +339,7 @@
       let resizeTimer;
       window.addEventListener("resize", () => {
         clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-          setViewportHeight();
-        }, 100);
+        resizeTimer = setTimeout(setViewportHeight, 100);
       });
 
       // Prevent pull-to-refresh on mobile
