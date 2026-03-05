@@ -1,0 +1,47 @@
+{
+"skeleton": { "hash": "5PqDqvDNu2g", "spine": "4.2.43", "fps": 60, "images": "./Images/", "audio": "./audio" },
+"bones": [
+	{ "name": "root" }
+],
+"slots": [
+	{ "name": "bar", "bone": "root" }
+],
+"skins": [
+	{
+		"name": "default",
+		"attachments": {
+			"bar": {
+				"bar_": {
+					"y": 32,
+					"width": 64,
+					"height": 64,
+					"sequence": { "count": 11, "start": 0, "digits": 2 }
+				}
+			}
+		}
+	}
+],
+"animations": {
+	"charge": {
+		"slots": {
+			"bar": {
+				"attachment": [
+					{ "name": "bar_" }
+				]
+			}
+		},
+		"attachments": {
+			"default": {
+				"bar": {
+					"bar_": {
+						"sequence": [
+							{ "mode": "loop", "delay": 0.0833 },
+							{ "time": 0.9167, "index": 10 }
+						]
+					}
+				}
+			}
+		}
+	}
+}
+}

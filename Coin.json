@@ -1,0 +1,75 @@
+{
+"skeleton": { "hash": "KlehBgDRdkE", "spine": "4.2.43", "fps": 60, "images": "./Images/", "audio": "./audio" },
+"bones": [
+	{ "name": "root" }
+],
+"slots": [
+	{ "name": "coin", "bone": "root" },
+	{ "name": "coinCollect", "bone": "root" }
+],
+"skins": [
+	{
+		"name": "default",
+		"attachments": {
+			"coin": {
+				"coin_": {
+					"width": 64,
+					"height": 64,
+					"sequence": { "count": 4, "start": 0, "digits": 2 }
+				}
+			},
+			"coinCollect": {
+				"coinCollect_": {
+					"width": 64,
+					"height": 64,
+					"sequence": { "count": 4, "start": 0, "digits": 2 }
+				}
+			}
+		}
+	}
+],
+"animations": {
+	"collect": {
+		"slots": {
+			"coinCollect": {
+				"attachment": [
+					{ "name": "coinCollect_" },
+					{ "time": 0.1667 }
+				]
+			}
+		},
+		"attachments": {
+			"default": {
+				"coinCollect": {
+					"coinCollect_": {
+						"sequence": [
+							{ "mode": "loop", "delay": 0.04 }
+						]
+					}
+				}
+			}
+		}
+	},
+	"idle": {
+		"slots": {
+			"coin": {
+				"attachment": [
+					{ "name": "coin_" }
+				]
+			}
+		},
+		"attachments": {
+			"default": {
+				"coin": {
+					"coin_": {
+						"sequence": [
+							{ "mode": "once", "delay": 0.0833 },
+							{ "time": 0.3167, "index": 3 }
+						]
+					}
+				}
+			}
+		}
+	}
+}
+}
