@@ -1,18 +1,18 @@
 {
-"skeleton": { "hash": "gpHiQ6Wg/1E", "spine": "4.2.43", "fps": 60, "images": "./Images/", "audio": "./audio" },
+"skeleton": { "hash": "nFFEq0JbAGo", "spine": "4.2.43", "fps": 60, "images": "./Images/", "audio": "./audio" },
 "bones": [
-	{ "name": "root" },
-	{ "name": "player", "parent": "root" }
+	{ "name": "root" }
 ],
 "slots": [
-	{ "name": "playerIdle", "bone": "player" },
+	{ "name": "playerIdle", "bone": "root" },
 	{ "name": "playerPrep", "bone": "root" },
 	{ "name": "playerCharge", "bone": "root" },
 	{ "name": "playerStun", "bone": "root" },
 	{ "name": "playerStunLoop", "bone": "root" },
 	{ "name": "playerJump", "bone": "root" },
 	{ "name": "playerLand", "bone": "root" },
-	{ "name": "playerStunToIdle", "bone": "root" }
+	{ "name": "playerStunToIdle", "bone": "root" },
+	{ "name": "stunEffect", "bone": "root" }
 ],
 "skins": [
 	{
@@ -66,6 +66,14 @@
 					"height": 64,
 					"sequence": { "count": 2, "start": 0, "digits": 2 }
 				}
+			},
+			"stunEffect": {
+				"stunEffect_": {
+					"y": 32,
+					"width": 64,
+					"height": 64,
+					"sequence": { "count": 4, "start": 0, "digits": 2 }
+				}
 			}
 		}
 	}
@@ -76,17 +84,8 @@
 			"playerCharge": {
 				"attachment": [
 					{ "name": "playerCharge00" },
-					{ "time": 0.1667 },
-					{ "time": 0.3333, "name": "playerCharge00" },
-					{ "time": 0.4667 },
-					{ "time": 0.6, "name": "playerCharge00" },
-					{ "time": 0.7 },
-					{ "time": 0.8, "name": "playerCharge00" },
-					{ "time": 0.8667 },
-					{ "time": 0.9333, "name": "playerCharge00" },
-					{ "time": 0.9667 },
-					{ "time": 1, "name": "playerCharge00" },
-					{ "time": 1.0167, "name": "playerCharge00" }
+					{ "time": 0.0833 },
+					{ "time": 0.15, "name": "playerCharge00" }
 				]
 			},
 			"playerPrep": {
@@ -221,6 +220,11 @@
 				"attachment": [
 					{ "name": "playerStunLoop" }
 				]
+			},
+			"stunEffect": {
+				"attachment": [
+					{ "name": "stunEffect_" }
+				]
 			}
 		},
 		"attachments": {
@@ -234,6 +238,13 @@
 							{ "time": 0.5, "mode": "once", "index": 3 },
 							{ "time": 0.6667, "mode": "onceReverse" },
 							{ "time": 0.8167, "index": 3 }
+						]
+					}
+				},
+				"stunEffect": {
+					"stunEffect_": {
+						"sequence": [
+							{ "mode": "loop", "delay": 0.1 }
 						]
 					}
 				}
